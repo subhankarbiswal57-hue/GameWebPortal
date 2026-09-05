@@ -1,12 +1,6 @@
 import { ChessGame, PIECES } from './engine.js';
 import { sound } from '../../apps/portal/js/shared/audio.js';
-
-const PIRATE_CHARACTERS = [
-  { name: 'Captain Jack', icon: '🏴‍☠️', quote: 'The only rules that matter are: what a man can do and what a man cannot do.', color: '#ffd700' },
-  { name: 'Davy Jones', icon: '🐙', quote: 'I am the sea!', color: '#00ffcc', isScare: true },
-  { name: 'Barbossa', icon: '🍎', quote: 'Ten years we’ve been on this ship and you still can’t beat me in chess?!', color: '#ff7700' },
-  { name: 'Calypso', icon: '🌊', quote: 'The sea does not yield to kings!', color: '#38b6ff' }
-];
+import { SEA_CHARACTERS, drawLiveCharacter, drawSeaVoyageBackground } from '../../apps/portal/js/shared/sea-engine.js';
 
 const UNICODE_PIECES = {
   [PIECES.WHITE | PIECES.KING]: '♔',
@@ -48,26 +42,20 @@ export function start(canvas) {
   let isThinking = false;
   let moveCount = 0;
 
-  // Lifelines:
-  // 1: Oracle Compass (Reveals the best tactical move)
-  // 2: Time Reversal (Undo last move)
-  let lifelines = {
-    hint: 2,
-    undo: 2
-  };
+  // Lifelines: Hint
+  let lifelines = { hint: 2 };
   let bestHintMove = null;
 
   // Character popups & jumpscares
   let activePopups = [];
   let jumpScare = null;
-  let nextPopupTimer = 220;
 
   function triggerJumpscare(char) {
     jumpScare = {
       ...char,
       alpha: 1.0,
-      scale: 0.2,
-      maxScale: 1.4,
+      scale: 0.15,
+      maxScale: 1.5,
       timer: 55
     };
     sound.playCrash();
@@ -100,16 +88,15 @@ export function start(canvas) {
 
     if (move.capture) {
       sound.playChessCapture();
-      // Chance of Captain Jack or Barbossa popping on high-value captures
       if (Math.random() < 0.45) {
-        const char = PIRATE_CHARACTERS[Math.floor(Math.random() * PIRATE_CHARACTERS.length)];
+        const char = SEA_CHARACTERS[Math.floor(Math.random() * SEA_CHARACTERS.length)];
         activePopups.push({
-          ...char,
-          x: width / 2 - 100,
-          targetX: width / 2 - 100,
+          char,
+          x: width / 2 - 110,
+          targetX: width / 2 - 110,
           y: 70,
           alpha: 1.0,
-          timer: 110
+          timer: 120
         });
       }
     } else {
@@ -118,9 +105,9 @@ export function start(canvas) {
 
     if (result.isCheck) {
       sound.playChessCheck();
-      // Jumpscare on check!
       if (game.turn === playerColor) {
-        triggerJumpscare(PIRATE_CHARACTERS[1]); // Davy Jones CHECK scare
+        const scareChar = SEA_CHARACTERS.find(c => c.type === 'tentacle');
+        triggerJumpscare(scareChar);
       }
     }
 
@@ -177,14 +164,12 @@ export function start(canvas) {
     const px = clientX - rect.left;
     const py = clientY - rect.top;
 
-    // Mode Toggle Button
     if (py < 55 && px > width / 2 - 110 && px < width / 2 + 110) {
       gameMode = gameMode === 'ai' ? 'pvp' : 'ai';
       sound.playChessMove();
       return;
     }
 
-    // Lifelines: Hint (Left) & Undo (Right)
     if (py > 60 && py < 105) {
       if (px > 24 && px < 94 && lifelines.hint > 0) {
         lifelines.hint--;
@@ -224,28 +209,15 @@ export function start(canvas) {
   let rafId = null;
 
   function render(time) {
-    // --- DAY & NIGHT TRANSITION FOR CHESS PALACE ---
-    const cycleTime = (time * 0.00015) % (Math.PI * 2);
-    const dayFactor = (Math.sin(cycleTime) + 1) / 2;
+    // --- DAY & NIGHT VOYAGE BACKGROUND FOR CHESS DUEL ---
+    const cycleSpeed = 0.00012;
+    const dayFactor = (Math.sin(time * cycleSpeed) + 1) / 2;
 
-    const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 40, width / 2, height / 2, width * 0.85);
-    if (dayFactor > 0.5) {
-      // Golden Daylight Chamber
-      bgGrad.addColorStop(0, '#3d2c1d');
-      bgGrad.addColorStop(0.6, '#241a12');
-      bgGrad.addColorStop(1, '#110c08');
-    } else {
-      // Moonlit Cursed Chamber
-      bgGrad.addColorStop(0, '#131b2c');
-      bgGrad.addColorStop(0.6, '#0d131f');
-      bgGrad.addColorStop(1, '#05070d');
-    }
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
+    drawSeaVoyageBackground(ctx, width, height, time, dayFactor);
 
     const { x, y, size, sqSize } = getBoardRect();
 
-    // Wood & Gold Carved Rim
+    // Wood & Gold Carved Outer Board Rim
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.85)';
     ctx.shadowBlur = 30;
@@ -258,7 +230,7 @@ export function start(canvas) {
     ctx.stroke();
     ctx.restore();
 
-    // Squares
+    // Board Square Colors
     const LIGHT_SQ = dayFactor > 0.5 ? '#e2cead' : '#b0a490';
     const DARK_SQ = dayFactor > 0.5 ? '#7a5135' : '#453328';
     const HIGHLIGHT_SQ = 'rgba(212, 175, 55, 0.6)';
@@ -331,7 +303,7 @@ export function start(canvas) {
       }
     }
 
-    // CHARACTER POPUPS
+    // 7 LIVE ANIMATED CHARACTERS POPPING
     for (let i = activePopups.length - 1; i >= 0; i--) {
       const p = activePopups[i];
       p.timer--;
@@ -342,27 +314,26 @@ export function start(canvas) {
       }
       ctx.save();
       ctx.globalAlpha = p.alpha;
-      ctx.fillStyle = 'rgba(20, 15, 24, 0.95)';
-      ctx.roundRect(p.x, p.y, 220, 70, 10);
+      ctx.fillStyle = 'rgba(15, 12, 18, 0.95)';
+      ctx.roundRect(p.x, p.y, 220, 75, 12);
       ctx.fill();
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = p.char.color;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      ctx.font = '24px system-ui';
-      ctx.fillText(p.icon, p.x + 10, p.y + 42);
+      drawLiveCharacter(ctx, p.x + 36, p.y + 38, p.char, time, 0.65);
 
       ctx.font = '900 12px Cinzel, serif';
-      ctx.fillStyle = p.color;
-      ctx.fillText(p.name, p.x + 46, p.y + 24);
+      ctx.fillStyle = p.char.color;
+      ctx.fillText(p.char.title, p.x + 72, p.y + 24);
 
       ctx.font = '10px system-ui';
       ctx.fillStyle = '#fff';
-      ctx.fillText(p.quote, p.x + 46, p.y + 44, 160);
+      ctx.fillText(p.char.quote, p.x + 72, p.y + 46, 140);
       ctx.restore();
     }
 
-    // JUMPSCARE OVERLAY
+    // JUMPSCARE OVERLAY WITH LIVE ANIMATED CHARACTER
     if (jumpScare) {
       jumpScare.timer--;
       jumpScare.scale = Math.min(jumpScare.maxScale, jumpScare.scale + 0.12);
@@ -371,23 +342,16 @@ export function start(canvas) {
       ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.7 : jumpScare.timer * 0.03})`;
       ctx.fillRect(0, 0, width, height);
 
-      ctx.translate(width / 2, height / 2);
-      ctx.scale(jumpScare.scale, jumpScare.scale);
+      drawLiveCharacter(ctx, width / 2, height / 2 - 30, jumpScare, time, jumpScare.scale * 1.8);
 
-      ctx.font = '110px system-ui';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = '#00ffcc';
-      ctx.shadowBlur = 40;
-      ctx.fillText(jumpScare.icon, 0, -30);
-
-      ctx.font = '900 36px Cinzel, serif';
+      ctx.font = '900 34px Cinzel, serif';
       ctx.fillStyle = '#ffd700';
-      ctx.fillText(jumpScare.name.toUpperCase(), 0, 60);
+      ctx.textAlign = 'center';
+      ctx.fillText(jumpScare.title.toUpperCase(), width / 2, height / 2 + 80);
 
       ctx.font = '700 20px Cinzel, serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(`"${jumpScare.quote}"`, 0, 95);
+      ctx.fillText(`"${jumpScare.quote}"`, width / 2, height / 2 + 115);
       ctx.restore();
 
       if (jumpScare.timer <= 0) jumpScare = null;

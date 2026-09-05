@@ -1,13 +1,5 @@
 import { sound } from '../../apps/portal/js/shared/audio.js';
-
-// Pirates characters who pop up dynamically
-const PIRATE_CHARACTERS = [
-  { name: 'Captain Jack', icon: '🏴‍☠️', quote: 'Why is the rum always gone?!', color: '#ffd700' },
-  { name: 'Davy Jones', icon: '🐙', quote: 'Do you fear death?!', color: '#00ffcc', isScare: true },
-  { name: 'Hector Barbossa', icon: '🍎', quote: 'You best start believin in ghost stories!', color: '#ff7700' },
-  { name: 'Blackbeard', icon: '🗡️', quote: 'If I don’t kill a man now and then...', color: '#ff3333', isScare: true },
-  { name: 'Elizabeth Swann', icon: '👑', quote: 'Hoist the colours high!', color: '#f3cf58' }
-];
+import { SEA_CHARACTERS, drawLiveCharacter, drawSeaVoyageBackground } from '../../apps/portal/js/shared/sea-engine.js';
 
 export function start(canvas) {
   const ctx = canvas.getContext('2d');
@@ -29,21 +21,14 @@ export function start(canvas) {
   let comboTimer = 0;
   let stats = { fruitsSliced: 0, bombsHit: 0, maxCombo: 0 };
 
-  // Lifelines:
-  // 1: Freeze Time (Slow-mo)
-  // 2: Golden Cutlass (Auto-slice burst)
-  // 3: Mermaid Blessing (Heal +1 Life)
-  let lifelines = {
-    freeze: 1,
-    blast: 1,
-    heal: 1
-  };
+  // Lifelines
+  let lifelines = { freeze: 1, blast: 1, heal: 1 };
   let slowMoTimer = 0;
 
-  // Jumpscare & Character pop-up state
+  // Jumpscares & Popups
   let activePopups = [];
-  let jumpScare = null; // { icon, name, quote, alpha, timer }
-  let nextPopupTimer = 180;
+  let jumpScare = null;
+  let nextPopupTimer = 160;
 
   const FRUIT_TYPES = [
     { type: 'watermelon', radius: 38, color: '#e82a47', rimColor: '#2d8a4e', points: 2, icon: '🍉' },
@@ -68,7 +53,6 @@ export function start(canvas) {
     isPointerDown = true;
     sound.init();
     
-    // Check lifeline button clicks (Top Left UI)
     const rect = canvas.getBoundingClientRect();
     const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
     const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
@@ -78,17 +62,16 @@ export function start(canvas) {
     if (py > 75 && py < 125) {
       if (px > 24 && px < 74 && lifelines.freeze > 0) {
         lifelines.freeze--;
-        slowMoTimer = 200; // Freeze time
+        slowMoTimer = 220;
         sound.playVictory();
-        addFloatingText(px + 25, py, '❄️ TIME FROZEN!', '#00f0ff');
+        addFloatingText(px + 25, py, '❄️ CALM SEA FREEZE!', '#00f0ff');
         return;
       }
       if (px > 84 && px < 134 && lifelines.blast > 0) {
         lifelines.blast--;
         sound.playSlice();
         sound.playVictory();
-        addFloatingText(width / 2, height / 2, '⚡ GOLDEN CUTLASS SLICE!', '#ffd700');
-        // Slice all current fruits on screen
+        addFloatingText(width / 2, height / 2, '⚡ MYSTIC CUTLASS SLICE!', '#ffd700');
         for (let i = items.length - 1; i >= 0; i--) {
           if (!items[i].isBomb) {
             score += items[i].points * 2;
@@ -102,7 +85,7 @@ export function start(canvas) {
         lifelines.heal--;
         lives = Math.min(3, lives + 1);
         sound.playVictory();
-        addFloatingText(px + 25, py, '+1 EXTRA LIFE! ❤️', '#ff3366');
+        addFloatingText(px + 25, py, '+1 EXTRA HEART! ❤️', '#ff3366');
         return;
       }
     }
@@ -141,9 +124,9 @@ export function start(canvas) {
     jumpScare = {
       ...char,
       alpha: 1.0,
-      scale: 0.2,
-      maxScale: 1.4,
-      timer: 50
+      scale: 0.15,
+      maxScale: 1.5,
+      timer: 55
     };
     sound.playCrash();
   }
@@ -211,7 +194,7 @@ export function start(canvas) {
           lives = Math.min(3, lives + 1);
           sound.playVictory();
           createSplatter(it.x, it.y, '#ff0055', 30);
-          addFloatingText(it.x, it.y - 15, '❤️ EXTRA LIFE!', '#ff0055');
+          addFloatingText(it.x, it.y - 15, '❤️ EXTRA HEART!', '#ff0055');
           items.splice(i, 1);
           return;
         }
@@ -224,8 +207,8 @@ export function start(canvas) {
           lives--;
           items.splice(i, 1);
           
-          // Trigger Davy Jones or Blackbeard jumpscare on bomb hit!
-          const scareChar = Math.random() < 0.5 ? PIRATE_CHARACTERS[1] : PIRATE_CHARACTERS[3];
+          const scareChars = SEA_CHARACTERS.filter(c => c.isScare);
+          const scareChar = scareChars[Math.floor(Math.random() * scareChars.length)];
           triggerJumpscare(scareChar);
 
           if (lives <= 0) {
@@ -234,7 +217,6 @@ export function start(canvas) {
           return;
         }
 
-        // Fruit Sliced!
         sound.playSlice();
         sound.playFruitHit();
         stats.fruitsSliced++;
@@ -292,83 +274,34 @@ export function start(canvas) {
   function render(time) {
     if (!running) return;
 
-    // --- DYNAMIC DAY / SUNSET / NIGHT CYCLE (transitions every ~25 seconds) ---
-    const cycleTime = (time * 0.0002) % (Math.PI * 2);
-    const dayFactor = (Math.sin(cycleTime) + 1) / 2; // 0 = Midnight, 0.5 = Sunset/Dawn, 1 = High Noon
+    // --- ULTRA-SMOOTH CONTINUOUS SEA VOYAGE DAY & NIGHT TRANSITIONS ---
+    const cycleSpeed = 0.00012; // ~50s for complete seamless voyage loop
+    const dayFactor = (Math.sin(time * cycleSpeed) + 1) / 2;
 
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-    if (dayFactor > 0.6) {
-      // BRIGHT TROPICAL CARIBBEAN DAY
-      bgGrad.addColorStop(0, '#38b6ff');
-      bgGrad.addColorStop(0.5, '#70d6ff');
-      bgGrad.addColorStop(1, '#e9d8a6');
-    } else if (dayFactor > 0.3) {
-      // GOLDEN CARIBBEAN SUNSET
-      bgGrad.addColorStop(0, '#f72585');
-      bgGrad.addColorStop(0.4, '#b5179e');
-      bgGrad.addColorStop(0.7, '#ff7b00');
-      bgGrad.addColorStop(1, '#d4af37');
-    } else {
-      // MYSTIC MOONLIT CURSED NIGHT
-      bgGrad.addColorStop(0, '#0a0d18');
-      bgGrad.addColorStop(0.5, '#161b2e');
-      bgGrad.addColorStop(1, '#05070c');
-    }
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
+    // Draw Sea Voyage with Galleons, Rolling Waves, Islands & Sky
+    drawSeaVoyageBackground(ctx, width, height, time, dayFactor);
 
-    // Sun / Moon in sky
-    const orbX = (width * 0.2) + ((time * 0.02) % (width * 0.6));
-    const orbY = 90 + Math.sin(cycleTime) * 30;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(orbX, orbY, 32, 0, Math.PI * 2);
-    if (dayFactor > 0.4) {
-      ctx.fillStyle = '#fff475';
-      ctx.shadowColor = '#ffd700';
-      ctx.shadowBlur = 30;
-    } else {
-      ctx.fillStyle = '#d4f1f9';
-      ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = 25;
-    }
-    ctx.fill();
-    ctx.restore();
-
-    // Ocean waves animation at bottom
-    ctx.fillStyle = dayFactor > 0.4 ? 'rgba(0, 119, 182, 0.6)' : 'rgba(5, 20, 40, 0.8)';
-    ctx.beginPath();
-    ctx.moveTo(0, height);
-    for (let x = 0; x <= width; x += 20) {
-      const waveY = height - 55 + Math.sin(x * 0.02 + time * 0.003) * 12;
-      ctx.lineTo(x, waveY);
-    }
-    ctx.lineTo(width, height);
-    ctx.fill();
-
-    // Slow-mo freeze speed multiplier
     const speedMult = slowMoTimer > 0 ? 0.35 : 1.0;
     if (slowMoTimer > 0) slowMoTimer--;
 
-    // Random character pop-ups (Captain Jack, Barbossa, Elizabeth Swann)
+    // 7 LIVE ANIMATED CHARACTERS POPPING IN
     nextPopupTimer--;
     if (nextPopupTimer <= 0) {
-      nextPopupTimer = 240 + Math.floor(Math.random() * 200);
-      const char = PIRATE_CHARACTERS[Math.floor(Math.random() * PIRATE_CHARACTERS.length)];
+      nextPopupTimer = 220 + Math.floor(Math.random() * 180);
+      const char = SEA_CHARACTERS[Math.floor(Math.random() * SEA_CHARACTERS.length)];
       activePopups.push({
-        ...char,
-        x: Math.random() < 0.5 ? -180 : width + 180,
-        targetX: Math.random() < 0.5 ? 40 : width - 240,
+        char,
+        x: Math.random() < 0.5 ? -220 : width + 220,
+        targetX: Math.random() < 0.5 ? 50 : width - 260,
         y: height - 190,
         alpha: 1.0,
-        timer: 140
+        timer: 150
       });
     }
 
-    // DRAW & UPDATE POPPING CHARACTERS
     for (let i = activePopups.length - 1; i >= 0; i--) {
       const p = activePopups[i];
-      p.x += (p.targetX - p.x) * 0.1;
+      p.x += (p.targetX - p.x) * 0.08; // Smooth ease in
       p.timer--;
       if (p.timer < 30) p.alpha = p.timer / 30;
 
@@ -379,24 +312,27 @@ export function start(canvas) {
 
       ctx.save();
       ctx.globalAlpha = p.alpha;
-      // Dialogue bubble
-      ctx.fillStyle = 'rgba(20, 15, 24, 0.9)';
-      ctx.roundRect(p.x, p.y, 200, 75, 12);
+      
+      // Character dialogue box
+      ctx.fillStyle = 'rgba(15, 12, 18, 0.92)';
+      ctx.roundRect(p.x, p.y, 220, 80, 14);
       ctx.fill();
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = p.char.color;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = p.char.color;
+      ctx.shadowBlur = 10;
       ctx.stroke();
 
-      ctx.font = '28px system-ui';
-      ctx.fillText(p.icon, p.x + 10, p.y + 45);
+      // Render live animated bust with moving parts
+      drawLiveCharacter(ctx, p.x + 36, p.y + 40, p.char, time, 0.65);
 
       ctx.font = '900 13px Cinzel, serif';
-      ctx.fillStyle = p.color;
-      ctx.fillText(p.name, p.x + 50, p.y + 26);
+      ctx.fillStyle = p.char.color;
+      ctx.fillText(p.char.title, p.x + 75, p.y + 26);
 
       ctx.font = '11px system-ui';
       ctx.fillStyle = '#fff';
-      ctx.fillText(p.quote, p.x + 50, p.y + 48, 140);
+      ctx.fillText(p.char.quote, p.x + 75, p.y + 50, 135);
       ctx.restore();
     }
 
@@ -596,7 +532,7 @@ export function start(canvas) {
       ctx.restore();
     }
 
-    // JUMPSCARE SCREEN OVERLAY (Davy Jones / Blackbeard)
+    // JUMPSCARE SCREEN OVERLAY WITH LIVE ANIMATED CHARACTER
     if (jumpScare) {
       jumpScare.timer--;
       jumpScare.scale = Math.min(jumpScare.maxScale, jumpScare.scale + 0.12);
@@ -605,24 +541,17 @@ export function start(canvas) {
       ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.65 : jumpScare.timer * 0.03})`;
       ctx.fillRect(0, 0, width, height);
 
-      ctx.translate(width / 2, height / 2);
-      ctx.scale(jumpScare.scale, jumpScare.scale);
+      // Render scaling character
+      drawLiveCharacter(ctx, width / 2, height / 2 - 30, jumpScare, time, jumpScare.scale * 1.8);
 
-      ctx.font = '110px system-ui';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = '#00ffcc';
-      ctx.shadowBlur = 40;
-      ctx.fillText(jumpScare.icon, 0, -30);
-
-      ctx.font = '900 36px Cinzel, serif';
+      ctx.font = '900 34px Cinzel, serif';
       ctx.fillStyle = '#ffd700';
-      ctx.shadowColor = '#ff0000';
-      ctx.fillText(jumpScare.name.toUpperCase(), 0, 60);
+      ctx.textAlign = 'center';
+      ctx.fillText(jumpScare.title.toUpperCase(), width / 2, height / 2 + 80);
 
       ctx.font = '700 20px Cinzel, serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(`"${jumpScare.quote}"`, 0, 95);
+      ctx.fillText(`"${jumpScare.quote}"`, width / 2, height / 2 + 115);
       ctx.restore();
 
       if (jumpScare.timer <= 0) {
@@ -645,9 +574,8 @@ export function start(canvas) {
     ctx.font = '22px system-ui';
     ctx.fillText(hearts, width - 120, 48);
 
-    // LIFELINES HUD (Interactive Buttons)
+    // LIFELINES HUD
     const llY = 82;
-    // Freeze Button
     ctx.fillStyle = lifelines.freeze > 0 ? 'rgba(0, 240, 255, 0.25)' : 'rgba(0, 0, 0, 0.4)';
     ctx.strokeStyle = lifelines.freeze > 0 ? '#00f0ff' : '#555';
     ctx.lineWidth = 1.5;
@@ -656,14 +584,12 @@ export function start(canvas) {
     ctx.font = '20px system-ui';
     ctx.fillText('❄️', 36, llY + 28);
 
-    // Blast Button
     ctx.fillStyle = lifelines.blast > 0 ? 'rgba(255, 215, 0, 0.25)' : 'rgba(0, 0, 0, 0.4)';
     ctx.strokeStyle = lifelines.blast > 0 ? '#ffd700' : '#555';
     ctx.roundRect(84, llY, 50, 40, 8);
     ctx.fill(); ctx.stroke();
     ctx.fillText('⚡', 96, llY + 28);
 
-    // Heal Button
     ctx.fillStyle = lifelines.heal > 0 ? 'rgba(255, 0, 85, 0.25)' : 'rgba(0, 0, 0, 0.4)';
     ctx.strokeStyle = lifelines.heal > 0 ? '#ff0055' : '#555';
     ctx.roundRect(144, llY, 50, 40, 8);

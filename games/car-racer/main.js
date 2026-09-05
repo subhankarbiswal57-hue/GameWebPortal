@@ -1,11 +1,5 @@
 import { sound } from '../../apps/portal/js/shared/audio.js';
-
-const PIRATE_CHARACTERS = [
-  { name: 'Captain Jack', icon: '🏴‍☠️', quote: 'Drink up me hearties, yo ho!', color: '#ffd700' },
-  { name: 'Davy Jones', icon: '🐙', quote: 'Let no man escape the abyss!', color: '#00ffcc', isScare: true },
-  { name: 'Barbossa', icon: '🍎', quote: 'Strike your colors, you blooming roaches!', color: '#ff7700' },
-  { name: 'Blackbeard', icon: '🗡️', quote: 'Mutiny is death!', color: '#ff3333', isScare: true }
-];
+import { SEA_CHARACTERS, drawLiveCharacter, drawSeaVoyageBackground } from '../../apps/portal/js/shared/sea-engine.js';
 
 export function start(canvas) {
   const ctx = canvas.getContext('2d');
@@ -30,10 +24,6 @@ export function start(canvas) {
   let maxSpeed = 16;
   let isBoosting = false;
 
-  // Lifelines:
-  // 1: Forcefield Shield (immune to 1 crash)
-  // 2: EMP Shockwave (destroys upcoming traffic)
-  // 3: Infinite Nitro Overdrive
   let shieldActive = false;
   let lifelines = {
     shield: 1,
@@ -42,10 +32,9 @@ export function start(canvas) {
   };
   let overdriveTimer = 0;
 
-  // Jumpscares & Popups
   let activePopups = [];
   let jumpScare = null;
-  let nextPopupTimer = 200;
+  let nextPopupTimer = 180;
 
   const roadWidth = Math.min(width * 0.88, 540);
   const roadLeft = (width - roadWidth) / 2;
@@ -83,8 +72,8 @@ export function start(canvas) {
     jumpScare = {
       ...char,
       alpha: 1.0,
-      scale: 0.2,
-      maxScale: 1.4,
+      scale: 0.15,
+      maxScale: 1.5,
       timer: 55
     };
     sound.playCrash();
@@ -100,7 +89,6 @@ export function start(canvas) {
       keys.boost = true;
       if (nitro > 10 || overdriveTimer > 0) sound.playNitro();
     }
-    // Key shortcuts for lifelines: 1, 2, 3
     if (e.key === '1' && lifelines.shield > 0) {
       lifelines.shield--;
       shieldActive = true;
@@ -141,7 +129,6 @@ export function start(canvas) {
     const px = clientX - rect.left;
     const py = clientY - rect.top;
 
-    // Check Lifelines UI clicks
     if (py > 75 && py < 125) {
       if (px > 24 && px < 74 && lifelines.shield > 0) {
         lifelines.shield--;
@@ -224,15 +211,16 @@ export function start(canvas) {
     if (shieldActive) {
       shieldActive = false;
       sound.playCrash();
-      triggerJumpscare(PIRATE_CHARACTERS[1]); // Davy Jones appears!
+      const scareChar = SEA_CHARACTERS.find(c => c.type === 'tentacle');
+      triggerJumpscare(scareChar);
       return;
     }
 
     running = false;
     sound.playCrash();
     
-    // Jumpscare on game over crash
-    triggerJumpscare(PIRATE_CHARACTERS[3]);
+    const scareChar = SEA_CHARACTERS.find(c => c.type === 'buccaneer');
+    triggerJumpscare(scareChar);
 
     for (let i = 0; i < 45; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -269,9 +257,11 @@ export function start(canvas) {
   function render(time) {
     if (!running) return;
 
-    // --- DAY & NIGHT TRANSITION CYCLE (Smooth day, dusk, night blend) ---
-    const cycleTime = (time * 0.00018) % (Math.PI * 2);
-    const dayFactor = (Math.sin(cycleTime) + 1) / 2;
+    // --- CONTINUOUS DAY / NIGHT SEA VOYAGE BACKGROUND ---
+    const cycleSpeed = 0.00012;
+    const dayFactor = (Math.sin(time * cycleSpeed) + 1) / 2;
+
+    drawSeaVoyageBackground(ctx, width, height, time, dayFactor);
 
     if (overdriveTimer > 0) overdriveTimer--;
 
@@ -309,40 +299,6 @@ export function start(canvas) {
       spawnCoin();
     }
 
-    // DRAW DYNAMIC SKY (Day -> Sunset -> Night)
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, height * 0.5);
-    if (dayFactor > 0.6) {
-      // Sunny Day
-      skyGrad.addColorStop(0, '#1d9bf0');
-      skyGrad.addColorStop(1, '#8be4fc');
-    } else if (dayFactor > 0.3) {
-      // Sunset
-      skyGrad.addColorStop(0, '#f72585');
-      skyGrad.addColorStop(0.5, '#7209b7');
-      skyGrad.addColorStop(1, '#f8961e');
-    } else {
-      // Night
-      skyGrad.addColorStop(0, '#04060b');
-      skyGrad.addColorStop(1, '#0e1424');
-    }
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, width, height);
-
-    // City & Mountain Silhouettes
-    ctx.fillStyle = dayFactor > 0.5 ? '#1a3250' : '#0a0e1a';
-    for (let b = 0; b < width; b += 65) {
-      const bHeight = 90 + (Math.sin(b * 0.05) * 0.5 + 0.5) * 70;
-      ctx.fillRect(b, height * 0.15, 60, bHeight);
-      if (dayFactor <= 0.5) {
-        ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-        for (let w = height * 0.18; w < height * 0.15 + bHeight - 10; w += 16) {
-          ctx.fillRect(b + 8, w, 6, 8);
-          ctx.fillRect(b + 32, w, 6, 8);
-        }
-        ctx.fillStyle = '#0a0e1a';
-      }
-    }
-
     // Motion Speed Lines
     if (isBoosting || speed > 10) {
       ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
@@ -357,15 +313,14 @@ export function start(canvas) {
       }
     }
 
-    // Road Grass
-    ctx.fillStyle = dayFactor > 0.5 ? '#2d6a4f' : '#14111a';
-    ctx.fillRect(roadLeft - 30, 0, roadWidth + 60, height);
+    // Pier / Wooden Highway Surface
+    ctx.fillStyle = dayFactor > 0.5 ? '#38281a' : '#140f0c';
+    ctx.fillRect(roadLeft - 25, 0, roadWidth + 50, height);
 
-    // Main Road
-    ctx.fillStyle = dayFactor > 0.5 ? '#3a3a46' : '#1c1b24';
+    ctx.fillStyle = dayFactor > 0.5 ? '#543d2b' : '#221915';
     ctx.fillRect(roadLeft, 0, roadWidth, height);
 
-    // Neon Road Borders
+    // Glowing Road Borders
     ctx.strokeStyle = isBoosting ? '#00f0ff' : '#d4af37';
     ctx.lineWidth = 5;
     ctx.beginPath();
@@ -388,24 +343,24 @@ export function start(canvas) {
     }
     ctx.setLineDash([]);
 
-    // Character Popups
+    // 7 LIVE ANIMATED CHARACTERS POPPING
     nextPopupTimer--;
     if (nextPopupTimer <= 0) {
-      nextPopupTimer = 240 + Math.floor(Math.random() * 200);
-      const char = PIRATE_CHARACTERS[Math.floor(Math.random() * PIRATE_CHARACTERS.length)];
+      nextPopupTimer = 220 + Math.floor(Math.random() * 180);
+      const char = SEA_CHARACTERS[Math.floor(Math.random() * SEA_CHARACTERS.length)];
       activePopups.push({
-        ...char,
-        x: Math.random() < 0.5 ? -180 : width + 180,
-        targetX: Math.random() < 0.5 ? 40 : width - 240,
+        char,
+        x: Math.random() < 0.5 ? -220 : width + 220,
+        targetX: Math.random() < 0.5 ? 50 : width - 260,
         y: height - 190,
         alpha: 1.0,
-        timer: 140
+        timer: 150
       });
     }
 
     for (let i = activePopups.length - 1; i >= 0; i--) {
       const p = activePopups[i];
-      p.x += (p.targetX - p.x) * 0.1;
+      p.x += (p.targetX - p.x) * 0.08;
       p.timer--;
       if (p.timer < 30) p.alpha = p.timer / 30;
 
@@ -416,27 +371,26 @@ export function start(canvas) {
 
       ctx.save();
       ctx.globalAlpha = p.alpha;
-      ctx.fillStyle = 'rgba(20, 15, 24, 0.9)';
-      ctx.roundRect(p.x, p.y, 200, 75, 12);
+      ctx.fillStyle = 'rgba(15, 12, 18, 0.92)';
+      ctx.roundRect(p.x, p.y, 220, 80, 14);
       ctx.fill();
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = p.char.color;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      ctx.font = '28px system-ui';
-      ctx.fillText(p.icon, p.x + 10, p.y + 45);
+      drawLiveCharacter(ctx, p.x + 36, p.y + 40, p.char, time, 0.65);
 
       ctx.font = '900 13px Cinzel, serif';
-      ctx.fillStyle = p.color;
-      ctx.fillText(p.name, p.x + 50, p.y + 26);
+      ctx.fillStyle = p.char.color;
+      ctx.fillText(p.char.title, p.x + 75, p.y + 26);
 
       ctx.font = '11px system-ui';
       ctx.fillStyle = '#fff';
-      ctx.fillText(p.quote, p.x + 50, p.y + 48, 140);
+      ctx.fillText(p.char.quote, p.x + 75, p.y + 50, 135);
       ctx.restore();
     }
 
-    // Headlight Beams (Darker during night)
+    // Headlight Beams
     if (dayFactor <= 0.6) {
       const headBeam = ctx.createLinearGradient(player.x, player.y, player.x, player.y - 240);
       headBeam.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
@@ -558,7 +512,6 @@ export function start(canvas) {
     ctx.translate(player.x, player.y);
 
     if (shieldActive) {
-      // Forcefield Glow
       ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 4;
       ctx.shadowColor = '#00f0ff';
@@ -580,7 +533,7 @@ export function start(canvas) {
     ctx.fillRect(-3, -player.h / 2 + 2, 6, player.h - 8);
     ctx.restore();
 
-    // JUMPSCARE
+    // JUMPSCARE OVERLAY WITH LIVE ANIMATED CHARACTER
     if (jumpScare) {
       jumpScare.timer--;
       jumpScare.scale = Math.min(jumpScare.maxScale, jumpScare.scale + 0.12);
@@ -589,23 +542,16 @@ export function start(canvas) {
       ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.7 : jumpScare.timer * 0.03})`;
       ctx.fillRect(0, 0, width, height);
 
-      ctx.translate(width / 2, height / 2);
-      ctx.scale(jumpScare.scale, jumpScare.scale);
+      drawLiveCharacter(ctx, width / 2, height / 2 - 30, jumpScare, time, jumpScare.scale * 1.8);
 
-      ctx.font = '110px system-ui';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = '#00ffcc';
-      ctx.shadowBlur = 40;
-      ctx.fillText(jumpScare.icon, 0, -30);
-
-      ctx.font = '900 36px Cinzel, serif';
+      ctx.font = '900 34px Cinzel, serif';
       ctx.fillStyle = '#ffd700';
-      ctx.fillText(jumpScare.name.toUpperCase(), 0, 60);
+      ctx.textAlign = 'center';
+      ctx.fillText(jumpScare.title.toUpperCase(), width / 2, height / 2 + 80);
 
       ctx.font = '700 20px Cinzel, serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(`"${jumpScare.quote}"`, 0, 95);
+      ctx.fillText(`"${jumpScare.quote}"`, width / 2, height / 2 + 115);
       ctx.restore();
 
       if (jumpScare.timer <= 0) jumpScare = null;
@@ -626,9 +572,7 @@ export function start(canvas) {
     ctx.fillStyle = '#ffd700';
     ctx.fillText(`🪙 ${coinsCollected}`, width - 120, 45);
 
-    // LIFELINES HUD BUTTONS
     const llY = 82;
-    // Shield
     ctx.fillStyle = (lifelines.shield > 0 || shieldActive) ? 'rgba(0, 240, 255, 0.25)' : 'rgba(0,0,0,0.4)';
     ctx.strokeStyle = '#00f0ff';
     ctx.roundRect(24, llY, 50, 40, 8);
@@ -636,14 +580,12 @@ export function start(canvas) {
     ctx.font = '20px system-ui';
     ctx.fillText('🛡️', 36, llY + 28);
 
-    // EMP
     ctx.fillStyle = lifelines.emp > 0 ? 'rgba(255, 215, 0, 0.25)' : 'rgba(0,0,0,0.4)';
     ctx.strokeStyle = '#ffd700';
     ctx.roundRect(84, llY, 50, 40, 8);
     ctx.fill(); ctx.stroke();
     ctx.fillText('⚡', 96, llY + 28);
 
-    // Overdrive
     ctx.fillStyle = (lifelines.overdrive > 0 || overdriveTimer > 0) ? 'rgba(255, 0, 85, 0.25)' : 'rgba(0,0,0,0.4)';
     ctx.strokeStyle = '#ff0055';
     ctx.roundRect(144, llY, 50, 40, 8);
