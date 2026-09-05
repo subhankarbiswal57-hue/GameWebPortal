@@ -1,0 +1,7 @@
+{
+  "id": "chess-duel",
+  "title": "Grandmaster Chess Duel",
+  "description": "Master the royal game with full chess rules, smart AI difficulty settings, and 2-player pass & play.",
+  "thumbnail": "/games/chess-duel/thumb.svg",
+  "entry": "main.js"
+}

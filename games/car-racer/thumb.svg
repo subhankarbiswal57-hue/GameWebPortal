@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225" width="100%" height="100%">
+  <defs>
+    <linearGradient id="roadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0b1329" />
+      <stop offset="100%" stop-color="#05070d" />
+    </linearGradient>
+    <linearGradient id="carGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff1a1a" />
+      <stop offset="50%" stop-color="#ff6600" />
+      <stop offset="100%" stop-color="#ff1a1a" />
+    </linearGradient>
+    <filter id="neon">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="225" fill="url(#roadGrad)"/>
+  
+  <!-- Perspective Road -->
+  <polygon points="170,0 230,0 360,225 40,225" fill="#181e2b" />
+  
+  <!-- Glowing Road Edge Borders -->
+  <line x1="170" y1="0" x2="40" y2="225" stroke="#00f0ff" stroke-width="3" filter="url(#neon)" />
+  <line x1="230" y1="0" x2="360" y2="225" stroke="#00f0ff" stroke-width="3" filter="url(#neon)" />
+  
+  <!-- Dashed Highway Markers -->
+  <line x1="190" y1="20" x2="150" y2="225" stroke="#ffd700" stroke-width="2.5" stroke-dasharray="14 12" />
+  <line x1="210" y1="20" x2="250" y2="225" stroke="#ffd700" stroke-width="2.5" stroke-dasharray="14 12" />
+
+  <!-- Player Supercar -->
+  <g transform="translate(200, 150)">
+    <!-- Car Body -->
+    <rect x="-24" y="-35" width="48" height="65" rx="12" fill="url(#carGrad)" />
+    <!-- Windshield -->
+    <path d="M -18 -10 L 18 -10 L 14 8 L -14 8 Z" fill="#0ff" opacity="0.8" />
+    <!-- Headlights & Taillights -->
+    <circle cx="-16" cy="-30" r="4" fill="#ffffff" filter="url(#neon)"/>
+    <circle cx="16" cy="-30" r="4" fill="#ffffff" filter="url(#neon)"/>
+    <rect x="-20" y="24" width="10" height="4" fill="#ff0044" filter="url(#neon)"/>
+    <rect x="10" y="24" width="10" height="4" fill="#ff0044" filter="url(#neon)"/>
+    <!-- Wheels -->
+    <rect x="-28" y="-24" width="6" height="14" rx="2" fill="#111"/>
+    <rect x="22" y="-24" width="6" height="14" rx="2" fill="#111"/>
+    <rect x="-28" y="10" width="6" height="14" rx="2" fill="#111"/>
+    <rect x="22" y="10" width="6" height="14" rx="2" fill="#111"/>
+  </g>
+
+  <!-- Title Badge -->
+  <rect x="105" y="175" width="190" height="34" rx="6" fill="#000000bb" stroke="#00f0ff" stroke-width="1.5"/>
+  <text x="200" y="198" font-family="system-ui, sans-serif" font-weight="900" font-size="15" fill="#ffffff" text-anchor="middle" letter-spacing="1.5">TURBO RACER</text>
+</svg>

@@ -1,0 +1,7 @@
+{
+  "id": "fruit-blade",
+  "title": "Fruit Blade Frenzy",
+  "description": "Slice fresh fruits with your blade trail! Avoid sneaky bombs & build massive combo multipliers.",
+  "thumbnail": "/games/fruit-blade/thumb.svg",
+  "entry": "main.js"
+}

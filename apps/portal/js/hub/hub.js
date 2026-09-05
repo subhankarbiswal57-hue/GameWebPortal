@@ -1,6 +1,9 @@
 import { loadRegistry, loadGameModule } from '../core/game-registry.js';
 import { initRouter, goTo } from '../core/router.js';
 import { bus } from '../core/event-bus.js';
+import { initModals } from '../ui/modals.js';
+import { showScoreCard, initScoreCardUI } from '../ui/scorecard.js';
+import { sound } from '../shared/audio.js';
 
 const hubEl = document.getElementById('hub');
 const gameView = document.getElementById('game-view');
@@ -14,6 +17,10 @@ let activeManifest = null;
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/workers/service-worker.js').catch(console.error);
 }
+
+// Initialize Modals & UI
+initModals();
+initScoreCardUI(() => goTo(null));
 
 const manifests = await loadRegistry();
 renderCards(manifests);
@@ -38,8 +45,17 @@ function renderCards(list) {
     card.innerHTML = `
       <img src="${m.thumbnail}" alt="${m.title}" loading="lazy"
            onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E'">
-      <div class="body"><h3>${m.title}</h3><p>${m.description}</p></div>`;
-    card.addEventListener('click', () => goTo(m.id));
+      <div class="body">
+        <div>
+          <h3>${m.title}</h3>
+          <p>${m.description}</p>
+        </div>
+        <div class="play-tag">Play Now &rarr;</div>
+      </div>`;
+    card.addEventListener('click', () => {
+      sound.init();
+      goTo(m.id);
+    });
     hubEl.appendChild(card);
   }
 }
@@ -49,6 +65,8 @@ async function openGame(manifest) {
   hubEl.classList.add('hidden');
   gameView.classList.remove('hidden');
   overlay.classList.add('hidden');
+  document.getElementById('scorecard-modal').classList.add('hidden');
+  
   try {
     const mod = await loadGameModule(manifest);
     activeGame = mod.start(canvas);
@@ -61,28 +79,39 @@ async function openGame(manifest) {
   }
 }
 
-function onGameOver() {
-  overlay.innerHTML = `
-    <p>Game over</p>
-    <button id="ov-retry">Retry</button>
-    <button id="ov-back">Back to hub</button>`;
-  overlay.classList.remove('hidden');
-  document.getElementById('ov-retry').addEventListener('click', () => {
-    const m = activeManifest;
-    teardownGame();
-    openGame(m);
+function onGameOver(e) {
+  const detail = e.detail || {};
+  const score = detail.score || 0;
+  const stats = detail.stats || [];
+
+  // Display rich scorecard modal
+  showScoreCard({
+    gameId: activeManifest.id,
+    score: score,
+    stats: stats,
+    onRetry: () => {
+      const m = activeManifest;
+      teardownGame();
+      openGame(m);
+    },
+    onHub: () => {
+      goTo(null);
+    }
   });
-  document.getElementById('ov-back').addEventListener('click', () => goTo(null));
 }
 
 function teardownGame() {
   canvas.removeEventListener('gameover', onGameOver);
-  if (activeGame) { activeGame.stop(); activeGame = null; }
+  if (activeGame) { 
+    try { activeGame.stop(); } catch(e) {}
+    activeGame = null; 
+  }
 }
 
 function showHub() {
   gameView.classList.add('hidden');
   overlay.classList.add('hidden');
+  document.getElementById('scorecard-modal').classList.add('hidden');
   hubEl.classList.remove('hidden');
   teardownGame();
 }

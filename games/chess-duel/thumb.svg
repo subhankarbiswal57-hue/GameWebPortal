@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225" width="100%" height="100%">
+  <defs>
+    <linearGradient id="chessBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111625" />
+      <stop offset="100%" stop-color="#1d263b" />
+    </linearGradient>
+    <filter id="chessGlow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="225" fill="url(#chessBg)"/>
+
+  <!-- Checkerboard grid subtle -->
+  <g transform="translate(60, 20) skewX(-15) rotate(10)" opacity="0.35">
+    <rect x="0" y="0" width="40" height="40" fill="#445577" />
+    <rect x="40" y="0" width="40" height="40" fill="#222b3d" />
+    <rect x="80" y="0" width="40" height="40" fill="#445577" />
+    <rect x="120" y="0" width="40" height="40" fill="#222b3d" />
+    <rect x="0" y="40" width="40" height="40" fill="#222b3d" />
+    <rect x="40" y="40" width="40" height="40" fill="#445577" />
+    <rect x="80" y="40" width="40" height="40" fill="#222b3d" />
+    <rect x="120" y="40" width="40" height="40" fill="#445577" />
+  </g>
+
+  <!-- Golden Crown King & Knight -->
+  <g transform="translate(150, 95)" filter="url(#chessGlow)">
+    <text font-size="70" fill="#ffd700" text-anchor="middle">♚</text>
+  </g>
+  <g transform="translate(250, 95)" filter="url(#chessGlow)">
+    <text font-size="64" fill="#00f0ff" text-anchor="middle">♞</text>
+  </g>
+
+  <!-- Title Badge -->
+  <rect x="95" y="165" width="210" height="36" rx="8" fill="#000000c0" stroke="#ffd700" stroke-width="1.5"/>
+  <text x="200" y="189" font-family="system-ui, sans-serif" font-weight="900" font-size="15" fill="#ffffff" text-anchor="middle" letter-spacing="1.5">CHESS DUEL</text>
+</svg>

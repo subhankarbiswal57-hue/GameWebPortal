@@ -4,6 +4,7 @@ import { createObjectPool } from '../../engine/object-pool.js';
 import { createPerfMonitor } from '../../apps/portal/js/shared/perf-monitor.js';
 import { createPlayer, makeObstacleTemplate } from './objects.js';
 import { createControls } from './controls.js';
+import { sound } from '../../apps/portal/js/shared/audio.js';
 
 export function start(canvas) {
   const sm = createSceneManager(canvas);
@@ -28,6 +29,8 @@ export function start(canvas) {
 
   let spawnTimer = 0;
   let alive = true;
+  let dodgedCount = 0;
+  let score = 0;
   const active = [];
 
   sm.loop((t) => {
@@ -46,12 +49,23 @@ export function start(canvas) {
       o.position.z += 0.15;
       if (o.position.distanceTo(player.position) < 0.8) {
         alive = false;
-        canvas.dispatchEvent(new CustomEvent('gameover'));
+        sound.playCrash();
+        canvas.dispatchEvent(new CustomEvent('gameover', {
+          detail: {
+            score: score,
+            stats: [
+              { label: 'Obstacles Dodged', value: dodgedCount },
+              { label: 'Survival Time', value: `${Math.floor(score / 50)}s` }
+            ]
+          }
+        }));
       }
       if (o.position.z > 8) {
         o.visible = false;
         pool.release(o);
         active.splice(i, 1);
+        dodgedCount++;
+        score += 50;
       }
     }
   });

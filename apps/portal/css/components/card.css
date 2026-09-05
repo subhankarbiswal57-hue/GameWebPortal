@@ -1,9 +1,63 @@
-.card{
-  background:var(--bg-alt);border-radius:var(--radius);overflow:hidden;
-  border:1px solid #232833;cursor:pointer;transition:transform .15s,border-color .15s;
+.card {
+  background: var(--bg-card);
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
 }
-.card:hover{transform:translateY(-4px);border-color:var(--accent)}
-.card img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#000}
-.card .body{padding:var(--space-2)}
-.card h3{font-size:1.05rem;margin-bottom:4px}
-.card p{font-size:.85rem;color:var(--muted)}
+
+.card:hover {
+  transform: translateY(-6px) scale(1.02);
+  border-color: var(--accent-2);
+  box-shadow: 0 12px 28px rgba(0, 240, 255, 0.15);
+}
+
+.card img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  display: block;
+  background: #000;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.card .body {
+  padding: var(--space-2);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.card h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #fff;
+}
+
+.card p {
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.card .play-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.card:hover .play-tag {
+  color: var(--accent-2);
+}

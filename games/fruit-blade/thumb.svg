@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b092b" />
+      <stop offset="100%" stop-color="#3d1222" />
+    </linearGradient>
+    <linearGradient id="bladeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ffff" />
+      <stop offset="50%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ff007f" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="225" fill="url(#bgGrad)"/>
+  
+  <!-- Sliced Watermelon -->
+  <g transform="translate(130, 110) rotate(-20)">
+    <path d="M -50 0 A 50 50 0 0 0 50 0 Z" fill="#2d8a4e" />
+    <path d="M -44 -2 A 44 44 0 0 0 44 -2 Z" fill="#e82a47" />
+    <!-- Seeds -->
+    <circle cx="-20" cy="18" r="2.5" fill="#111" />
+    <circle cx="0" cy="24" r="2.5" fill="#111" />
+    <circle cx="20" cy="18" r="2.5" fill="#111" />
+  </g>
+
+  <!-- Orange Slices -->
+  <g transform="translate(270, 90) rotate(25)">
+    <circle cx="0" cy="0" r="32" fill="#ff7700" />
+    <circle cx="0" cy="0" r="27" fill="#ffa834" />
+    <line x1="0" y1="-27" x2="0" y2="27" stroke="#fff" stroke-width="1.5" opacity="0.6"/>
+    <line x1="-27" y1="0" x2="27" y2="0" stroke="#fff" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- Splashes -->
+  <circle cx="160" cy="70" r="6" fill="#e82a47" opacity="0.8"/>
+  <circle cx="230" cy="140" r="8" fill="#ffa834" opacity="0.8"/>
+  <circle cx="290" cy="150" r="4" fill="#e82a47" opacity="0.9"/>
+
+  <!-- Glowing Blade Slash Path -->
+  <path d="M 60 170 Q 200 60 340 40" fill="none" stroke="url(#bladeGrad)" stroke-width="6" stroke-linecap="round" filter="url(#glow)"/>
+
+  <!-- Game Title Badge -->
+  <rect x="110" y="165" width="180" height="36" rx="8" fill="#000000a0" stroke="#ff007f" stroke-width="1.5"/>
+  <text x="200" y="189" font-family="system-ui, sans-serif" font-weight="900" font-size="16" fill="#ffffff" text-anchor="middle" letter-spacing="1.5">FRUIT BLADE</text>
+</svg>

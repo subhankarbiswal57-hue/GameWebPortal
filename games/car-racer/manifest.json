@@ -1,0 +1,7 @@
+{
+  "id": "car-racer",
+  "title": "Turbo Car Racer",
+  "description": "High-octane highway racing! Dodge traffic, collect turbo canisters & score maximum distance.",
+  "thumbnail": "/games/car-racer/thumb.svg",
+  "entry": "main.js"
+}
