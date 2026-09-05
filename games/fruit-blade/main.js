@@ -1,5 +1,5 @@
 import { sound } from '../../apps/portal/js/shared/audio.js';
-import { SEA_CHARACTERS, drawLiveCharacter, drawSeaVoyageBackground } from '../../apps/portal/js/shared/sea-engine.js';
+import { REALISTIC_CHARACTERS, drawLiveRealisticCharacter, drawRealisticStormyOcean } from '../../apps/portal/js/shared/sea-engine.js';
 
 export function start(canvas) {
   const ctx = canvas.getContext('2d');
@@ -125,7 +125,7 @@ export function start(canvas) {
       ...char,
       alpha: 1.0,
       scale: 0.15,
-      maxScale: 1.5,
+      maxScale: 1.6,
       timer: 55
     };
     sound.playCrash();
@@ -207,7 +207,7 @@ export function start(canvas) {
           lives--;
           items.splice(i, 1);
           
-          const scareChars = SEA_CHARACTERS.filter(c => c.isScare);
+          const scareChars = REALISTIC_CHARACTERS.filter(c => c.isScare);
           const scareChar = scareChars[Math.floor(Math.random() * scareChars.length)];
           triggerJumpscare(scareChar);
 
@@ -274,34 +274,33 @@ export function start(canvas) {
   function render(time) {
     if (!running) return;
 
-    // --- ULTRA-SMOOTH CONTINUOUS SEA VOYAGE DAY & NIGHT TRANSITIONS ---
-    const cycleSpeed = 0.00012; // ~50s for complete seamless voyage loop
+    // --- REALISTIC OCEAN & DAY/NIGHT CYCLE ---
+    const cycleSpeed = 0.00012;
     const dayFactor = (Math.sin(time * cycleSpeed) + 1) / 2;
 
-    // Draw Sea Voyage with Galleons, Rolling Waves, Islands & Sky
-    drawSeaVoyageBackground(ctx, width, height, time, dayFactor);
+    drawRealisticStormyOcean(ctx, width, height, time, dayFactor);
 
     const speedMult = slowMoTimer > 0 ? 0.35 : 1.0;
     if (slowMoTimer > 0) slowMoTimer--;
 
-    // 7 LIVE ANIMATED CHARACTERS POPPING IN
+    // 7 REALISTIC MOVING CHARACTERS SLIDING IN
     nextPopupTimer--;
     if (nextPopupTimer <= 0) {
       nextPopupTimer = 220 + Math.floor(Math.random() * 180);
-      const char = SEA_CHARACTERS[Math.floor(Math.random() * SEA_CHARACTERS.length)];
+      const char = REALISTIC_CHARACTERS[Math.floor(Math.random() * REALISTIC_CHARACTERS.length)];
       activePopups.push({
         char,
-        x: Math.random() < 0.5 ? -220 : width + 220,
-        targetX: Math.random() < 0.5 ? 50 : width - 260,
-        y: height - 190,
+        x: Math.random() < 0.5 ? -260 : width + 260,
+        targetX: Math.random() < 0.5 ? 50 : width - 290,
+        y: height - 200,
         alpha: 1.0,
-        timer: 150
+        timer: 160
       });
     }
 
     for (let i = activePopups.length - 1; i >= 0; i--) {
       const p = activePopups[i];
-      p.x += (p.targetX - p.x) * 0.08; // Smooth ease in
+      p.x += (p.targetX - p.x) * 0.08;
       p.timer--;
       if (p.timer < 30) p.alpha = p.timer / 30;
 
@@ -313,9 +312,9 @@ export function start(canvas) {
       ctx.save();
       ctx.globalAlpha = p.alpha;
       
-      // Character dialogue box
-      ctx.fillStyle = 'rgba(15, 12, 18, 0.92)';
-      ctx.roundRect(p.x, p.y, 220, 80, 14);
+      // Dialogue parchment box
+      ctx.fillStyle = 'rgba(15, 12, 18, 0.95)';
+      ctx.roundRect(p.x, p.y, 250, 85, 14);
       ctx.fill();
       ctx.strokeStyle = p.char.color;
       ctx.lineWidth = 2.5;
@@ -323,16 +322,16 @@ export function start(canvas) {
       ctx.shadowBlur = 10;
       ctx.stroke();
 
-      // Render live animated bust with moving parts
-      drawLiveCharacter(ctx, p.x + 36, p.y + 40, p.char, time, 0.65);
+      // Realistic Animated Portrait
+      drawLiveRealisticCharacter(ctx, p.x + 45, p.y + 42, p.char, time, 65);
 
       ctx.font = '900 13px Cinzel, serif';
       ctx.fillStyle = p.char.color;
-      ctx.fillText(p.char.title, p.x + 75, p.y + 26);
+      ctx.fillText(p.char.title, p.x + 85, p.y + 28);
 
       ctx.font = '11px system-ui';
       ctx.fillStyle = '#fff';
-      ctx.fillText(p.char.quote, p.x + 75, p.y + 50, 135);
+      ctx.fillText(p.char.quote, p.x + 85, p.y + 52, 155);
       ctx.restore();
     }
 
@@ -532,26 +531,25 @@ export function start(canvas) {
       ctx.restore();
     }
 
-    // JUMPSCARE SCREEN OVERLAY WITH LIVE ANIMATED CHARACTER
+    // JUMPSCARE SCREEN OVERLAY WITH REALISTIC PORTRAIT
     if (jumpScare) {
       jumpScare.timer--;
       jumpScare.scale = Math.min(jumpScare.maxScale, jumpScare.scale + 0.12);
       
       ctx.save();
-      ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.65 : jumpScare.timer * 0.03})`;
+      ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.75 : jumpScare.timer * 0.035})`;
       ctx.fillRect(0, 0, width, height);
 
-      // Render scaling character
-      drawLiveCharacter(ctx, width / 2, height / 2 - 30, jumpScare, time, jumpScare.scale * 1.8);
+      drawLiveRealisticCharacter(ctx, width / 2, height / 2 - 35, jumpScare, time, 120 * jumpScare.scale);
 
       ctx.font = '900 34px Cinzel, serif';
       ctx.fillStyle = '#ffd700';
       ctx.textAlign = 'center';
-      ctx.fillText(jumpScare.title.toUpperCase(), width / 2, height / 2 + 80);
+      ctx.fillText(jumpScare.title.toUpperCase(), width / 2, height / 2 + 85);
 
       ctx.font = '700 20px Cinzel, serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(`"${jumpScare.quote}"`, width / 2, height / 2 + 115);
+      ctx.fillText(`"${jumpScare.quote}"`, width / 2, height / 2 + 120);
       ctx.restore();
 
       if (jumpScare.timer <= 0) {

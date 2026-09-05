@@ -1,6 +1,6 @@
 import { ChessGame, PIECES } from './engine.js';
 import { sound } from '../../apps/portal/js/shared/audio.js';
-import { SEA_CHARACTERS, drawLiveCharacter, drawSeaVoyageBackground } from '../../apps/portal/js/shared/sea-engine.js';
+import { REALISTIC_CHARACTERS, drawLiveRealisticCharacter, drawRealisticStormyOcean } from '../../apps/portal/js/shared/sea-engine.js';
 
 const UNICODE_PIECES = {
   [PIECES.WHITE | PIECES.KING]: '♔',
@@ -89,7 +89,7 @@ export function start(canvas) {
     if (move.capture) {
       sound.playChessCapture();
       if (Math.random() < 0.45) {
-        const char = SEA_CHARACTERS[Math.floor(Math.random() * SEA_CHARACTERS.length)];
+        const char = REALISTIC_CHARACTERS[Math.floor(Math.random() * REALISTIC_CHARACTERS.length)];
         activePopups.push({
           char,
           x: width / 2 - 110,
@@ -209,11 +209,11 @@ export function start(canvas) {
   let rafId = null;
 
   function render(time) {
-    // --- DAY & NIGHT VOYAGE BACKGROUND FOR CHESS DUEL ---
+    // --- CONTINUOUS REALISTIC STORMY OCEAN BACKGROUND ---
     const cycleSpeed = 0.00012;
     const dayFactor = (Math.sin(time * cycleSpeed) + 1) / 2;
 
-    drawSeaVoyageBackground(ctx, width, height, time, dayFactor);
+    drawRealisticStormyOcean(ctx, width, height, time, dayFactor);
 
     const { x, y, size, sqSize } = getBoardRect();
 
@@ -269,33 +269,58 @@ export function start(canvas) {
             ctx.strokeStyle = '#ff3333';
             ctx.lineWidth = 4;
             ctx.strokeRect(sqX + 3, sqY + 3, sqSize - 6, sqSize - 6);
-          } else {
-            ctx.fillStyle = 'rgba(212, 175, 55, 0.75)';
-            ctx.beginPath();
-            ctx.arc(sqX + sqSize / 2, sqY + sqSize / 2, sqSize * 0.18, 0, Math.PI * 2);
-            ctx.fill();
-          }
+        // Highlight Last Move
+        if (lastMove && (lastMove.from === sq || lastMove.to === sq)) {
+          ctx.fillStyle = 'rgba(255, 215, 0, 0.35)';
+          ctx.fillRect(sqX, sqY, sqSize, sqSize);
+        }
+
+        // Highlight Selected Square
+        if (selectedSquare === sq) {
+          ctx.fillStyle = 'rgba(0, 240, 255, 0.5)';
+          ctx.fillRect(sqX, sqY, sqSize, sqSize);
+        }
+
+        // Highlight Legal Target Squares
+        if (legalMoves.some(m => m.to === sq)) {
+          ctx.save();
+          ctx.fillStyle = game.board[sq] !== PIECES.EMPTY ? 'rgba(255, 68, 68, 0.6)' : 'rgba(0, 240, 255, 0.6)';
+          ctx.beginPath();
+          ctx.arc(sqX + sqSize / 2, sqY + sqSize / 2, sqSize * 0.22, 0, Math.PI * 2);
+          ctx.fill();
           ctx.restore();
         }
 
-        const piece = game.board[sqIdx];
-        if (piece) {
-          const char = UNICODE_PIECES[piece] || '';
+        // Highlight Hint Move
+        if (bestHintMove && (bestHintMove.from === sq || bestHintMove.to === sq)) {
+          ctx.strokeStyle = '#00ffcc';
+          ctx.lineWidth = 3.5;
+          ctx.strokeRect(sqX + 2, sqY + 2, sqSize - 4, sqSize - 4);
+        }
+
+        // Draw Piece
+        const piece = game.board[sq];
+        if (piece !== PIECES.EMPTY) {
+          const char = UNICODE_PIECES[piece];
           const isWhite = (piece & PIECES.WHITE) !== 0;
 
           ctx.save();
-          ctx.font = `${Math.floor(sqSize * 0.78)}px 'Segoe UI Symbol', system-ui, sans-serif`;
+          ctx.font = `${sqSize * 0.76}px serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
 
-          ctx.fillStyle = isWhite ? '#ffffff' : '#18141a';
-          ctx.shadowColor = isWhite ? 'rgba(255, 215, 0, 0.6)' : 'rgba(0, 0, 0, 0.8)';
-          ctx.shadowBlur = 8;
-          ctx.fillText(char, sqX + sqSize / 2, sqY + sqSize / 2 + 2);
-
-          if (!isWhite) {
-            ctx.strokeStyle = '#d4af37';
-            ctx.lineWidth = 1.2;
+          if (isWhite) {
+            ctx.fillStyle = '#fff';
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 10;
+            ctx.fillText(char, sqX + sqSize / 2, sqY + sqSize / 2 + 2);
+          } else {
+            ctx.fillStyle = '#111';
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 8;
+            ctx.fillText(char, sqX + sqSize / 2, sqY + sqSize / 2 + 2);
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 1;
             ctx.strokeText(char, sqX + sqSize / 2, sqY + sqSize / 2 + 2);
           }
           ctx.restore();
@@ -321,7 +346,7 @@ export function start(canvas) {
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      drawLiveCharacter(ctx, p.x + 36, p.y + 38, p.char, time, 0.65);
+      drawLiveRealisticCharacter(ctx, p.x + 36, p.y + 38, p.char, time, 54);
 
       ctx.font = '900 12px Cinzel, serif';
       ctx.fillStyle = p.char.color;
@@ -342,7 +367,7 @@ export function start(canvas) {
       ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.7 : jumpScare.timer * 0.03})`;
       ctx.fillRect(0, 0, width, height);
 
-      drawLiveCharacter(ctx, width / 2, height / 2 - 30, jumpScare, time, jumpScare.scale * 1.8);
+      drawLiveRealisticCharacter(ctx, width / 2, height / 2 - 30, jumpScare, time, 150);
 
       ctx.font = '900 34px Cinzel, serif';
       ctx.fillStyle = '#ffd700';

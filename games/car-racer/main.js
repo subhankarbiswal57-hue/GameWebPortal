@@ -1,5 +1,5 @@
 import { sound } from '../../apps/portal/js/shared/audio.js';
-import { SEA_CHARACTERS, drawLiveCharacter, drawSeaVoyageBackground } from '../../apps/portal/js/shared/sea-engine.js';
+import { REALISTIC_CHARACTERS, drawLiveRealisticCharacter, drawRealisticStormyOcean } from '../../apps/portal/js/shared/sea-engine.js';
 
 export function start(canvas) {
   const ctx = canvas.getContext('2d');
@@ -257,11 +257,11 @@ export function start(canvas) {
   function render(time) {
     if (!running) return;
 
-    // --- CONTINUOUS DAY / NIGHT SEA VOYAGE BACKGROUND ---
+    // --- CONTINUOUS DAY / NIGHT REALISTIC STORMY OCEAN BACKGROUND ---
     const cycleSpeed = 0.00012;
     const dayFactor = (Math.sin(time * cycleSpeed) + 1) / 2;
 
-    drawSeaVoyageBackground(ctx, width, height, time, dayFactor);
+    drawRealisticStormyOcean(ctx, width, height, time, dayFactor);
 
     if (overdriveTimer > 0) overdriveTimer--;
 
@@ -347,7 +347,7 @@ export function start(canvas) {
     nextPopupTimer--;
     if (nextPopupTimer <= 0) {
       nextPopupTimer = 220 + Math.floor(Math.random() * 180);
-      const char = SEA_CHARACTERS[Math.floor(Math.random() * SEA_CHARACTERS.length)];
+      const char = REALISTIC_CHARACTERS[Math.floor(Math.random() * REALISTIC_CHARACTERS.length)];
       activePopups.push({
         char,
         x: Math.random() < 0.5 ? -220 : width + 220,
@@ -378,7 +378,7 @@ export function start(canvas) {
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      drawLiveCharacter(ctx, p.x + 36, p.y + 40, p.char, time, 0.65);
+      drawLiveRealisticCharacter(ctx, p.x + 36, p.y + 40, p.char, time, 54);
 
       ctx.font = '900 13px Cinzel, serif';
       ctx.fillStyle = p.char.color;
@@ -490,12 +490,10 @@ export function start(canvas) {
 
       ctx.save();
       ctx.translate(t.x, t.y);
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      ctx.fillRect(-t.w / 2 + 5, -t.h / 2 + 7, t.w, t.h);
 
       ctx.fillStyle = t.color;
       ctx.beginPath();
-      ctx.roundRect(-t.w / 2, -t.h / 2, t.w, t.h, 12);
+      ctx.roundRect(-t.w / 2, -t.h / 2, t.w, t.h, 10);
       ctx.fill();
 
       ctx.fillStyle = '#0f1422';
@@ -542,7 +540,7 @@ export function start(canvas) {
       ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.7 : jumpScare.timer * 0.03})`;
       ctx.fillRect(0, 0, width, height);
 
-      drawLiveCharacter(ctx, width / 2, height / 2 - 30, jumpScare, time, jumpScare.scale * 1.8);
+      drawLiveRealisticCharacter(ctx, width / 2, height / 2 - 30, jumpScare, time, 150);
 
       ctx.font = '900 34px Cinzel, serif';
       ctx.fillStyle = '#ffd700';
