@@ -1,6 +1,14 @@
 import { sound } from '../../apps/portal/js/shared/audio.js';
 
-// Enhanced Fruit Blade game engine with animated dojo background, lanterns, blade trails, combo bursts
+// Pirates characters who pop up dynamically
+const PIRATE_CHARACTERS = [
+  { name: 'Captain Jack', icon: '🏴‍☠️', quote: 'Why is the rum always gone?!', color: '#ffd700' },
+  { name: 'Davy Jones', icon: '🐙', quote: 'Do you fear death?!', color: '#00ffcc', isScare: true },
+  { name: 'Hector Barbossa', icon: '🍎', quote: 'You best start believin in ghost stories!', color: '#ff7700' },
+  { name: 'Blackbeard', icon: '🗡️', quote: 'If I don’t kill a man now and then...', color: '#ff3333', isScare: true },
+  { name: 'Elizabeth Swann', icon: '👑', quote: 'Hoist the colours high!', color: '#f3cf58' }
+];
+
 export function start(canvas) {
   const ctx = canvas.getContext('2d');
   let width = (canvas.width = canvas.clientWidth || window.innerWidth || 800);
@@ -21,12 +29,29 @@ export function start(canvas) {
   let comboTimer = 0;
   let stats = { fruitsSliced: 0, bombsHit: 0, maxCombo: 0 };
 
+  // Lifelines:
+  // 1: Freeze Time (Slow-mo)
+  // 2: Golden Cutlass (Auto-slice burst)
+  // 3: Mermaid Blessing (Heal +1 Life)
+  let lifelines = {
+    freeze: 1,
+    blast: 1,
+    heal: 1
+  };
+  let slowMoTimer = 0;
+
+  // Jumpscare & Character pop-up state
+  let activePopups = [];
+  let jumpScare = null; // { icon, name, quote, alpha, timer }
+  let nextPopupTimer = 180;
+
   const FRUIT_TYPES = [
     { type: 'watermelon', radius: 38, color: '#e82a47', rimColor: '#2d8a4e', points: 2, icon: '🍉' },
     { type: 'orange', radius: 32, color: '#ff7700', rimColor: '#ffa834', points: 1, icon: '🍊' },
     { type: 'apple', radius: 30, color: '#44cc44', rimColor: '#aaff66', points: 1, icon: '🍏' },
     { type: 'strawberry', radius: 26, color: '#ff1a75', rimColor: '#44aa22', points: 3, icon: '🍓' },
     { type: 'banana', radius: 28, color: '#fdd835', rimColor: '#fff59d', points: 2, icon: '🍌' },
+    { type: 'heart', radius: 28, color: '#ff0055', rimColor: '#ffffff', points: 5, isHeart: true, icon: '💖' },
     { type: 'bomb', radius: 34, color: '#1a1a24', rimColor: '#ff2222', points: 0, isBomb: true, icon: '💣' }
   ];
 
@@ -39,17 +64,58 @@ export function start(canvas) {
   let spawnTimer = 0;
   let spawnInterval = 65;
 
-  // Blade trail listeners
   function onPointerDown(e) {
     isPointerDown = true;
     sound.init();
+    
+    // Check lifeline button clicks (Top Left UI)
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+
+    if (py > 75 && py < 125) {
+      if (px > 24 && px < 74 && lifelines.freeze > 0) {
+        lifelines.freeze--;
+        slowMoTimer = 200; // Freeze time
+        sound.playVictory();
+        addFloatingText(px + 25, py, '❄️ TIME FROZEN!', '#00f0ff');
+        return;
+      }
+      if (px > 84 && px < 134 && lifelines.blast > 0) {
+        lifelines.blast--;
+        sound.playSlice();
+        sound.playVictory();
+        addFloatingText(width / 2, height / 2, '⚡ GOLDEN CUTLASS SLICE!', '#ffd700');
+        // Slice all current fruits on screen
+        for (let i = items.length - 1; i >= 0; i--) {
+          if (!items[i].isBomb) {
+            score += items[i].points * 2;
+            createSplatter(items[i].x, items[i].y, items[i].color, 25);
+            items.splice(i, 1);
+          }
+        }
+        return;
+      }
+      if (px > 144 && px < 194 && lifelines.heal > 0) {
+        lifelines.heal--;
+        lives = Math.min(3, lives + 1);
+        sound.playVictory();
+        addFloatingText(px + 25, py, '+1 EXTRA LIFE! ❤️', '#ff3366');
+        return;
+      }
+    }
+
     addBladePoint(e);
   }
+
   function onPointerMove(e) {
     if (isPointerDown || e.buttons > 0) {
       addBladePoint(e);
     }
   }
+
   function onPointerUp() {
     isPointerDown = false;
   }
@@ -71,11 +137,28 @@ export function start(canvas) {
   canvas.addEventListener('touchmove', onPointerMove, { passive: true });
   window.addEventListener('touchend', onPointerUp);
 
+  function triggerJumpscare(char) {
+    jumpScare = {
+      ...char,
+      alpha: 1.0,
+      scale: 0.2,
+      maxScale: 1.4,
+      timer: 50
+    };
+    sound.playCrash();
+  }
+
   function spawnFruit() {
     const isBomb = Math.random() < 0.22;
-    const typeObj = isBomb 
-      ? FRUIT_TYPES.find(f => f.isBomb) 
-      : FRUIT_TYPES[Math.floor(Math.random() * (FRUIT_TYPES.length - 1))];
+    const isHeart = Math.random() < 0.08 && lives < 3;
+    let typeObj;
+    if (isHeart) {
+      typeObj = FRUIT_TYPES.find(f => f.isHeart);
+    } else if (isBomb) {
+      typeObj = FRUIT_TYPES.find(f => f.isBomb);
+    } else {
+      typeObj = FRUIT_TYPES.filter(f => !f.isBomb && !f.isHeart)[Math.floor(Math.random() * 5)];
+    }
 
     const x = width * 0.15 + Math.random() * (width * 0.7);
     const y = height + 45;
@@ -124,6 +207,15 @@ export function start(canvas) {
       if (dist < it.radius + 15) {
         it.sliced = true;
         
+        if (it.isHeart) {
+          lives = Math.min(3, lives + 1);
+          sound.playVictory();
+          createSplatter(it.x, it.y, '#ff0055', 30);
+          addFloatingText(it.x, it.y - 15, '❤️ EXTRA LIFE!', '#ff0055');
+          items.splice(i, 1);
+          return;
+        }
+
         if (it.isBomb) {
           sound.playBombExplode();
           createSplatter(it.x, it.y, '#ff3300', 40);
@@ -131,6 +223,11 @@ export function start(canvas) {
           stats.bombsHit++;
           lives--;
           items.splice(i, 1);
+          
+          // Trigger Davy Jones or Blackbeard jumpscare on bomb hit!
+          const scareChar = Math.random() < 0.5 ? PIRATE_CHARACTERS[1] : PIRATE_CHARACTERS[3];
+          triggerJumpscare(scareChar);
+
           if (lives <= 0) {
             triggerGameOver();
           }
@@ -152,7 +249,6 @@ export function start(canvas) {
         addFloatingText(it.x, it.y - 15, `+${pts}${combo > 1 ? ` (${combo}x)` : ''}`, it.color);
         createSplatter(it.x, it.y, it.color, 24);
 
-        // Split physics
         const cutAngle = Math.atan2(y - prev.y, x - prev.x);
         const perpX = Math.cos(cutAngle + Math.PI / 2);
         const perpY = Math.sin(cutAngle + Math.PI / 2);
@@ -196,50 +292,112 @@ export function start(canvas) {
   function render(time) {
     if (!running) return;
 
-    // --- ENHANCED ANIMATED BACKGROUND: MYSTIC NIGHT DOJO ---
-    const bgGrad = ctx.createRadialGradient(width / 2, height * 0.4, 40, width / 2, height / 2, width * 0.8);
-    bgGrad.addColorStop(0, '#261b17');
-    bgGrad.addColorStop(0.5, '#150f16');
-    bgGrad.addColorStop(1, '#08060a');
+    // --- DYNAMIC DAY / SUNSET / NIGHT CYCLE (transitions every ~25 seconds) ---
+    const cycleTime = (time * 0.0002) % (Math.PI * 2);
+    const dayFactor = (Math.sin(cycleTime) + 1) / 2; // 0 = Midnight, 0.5 = Sunset/Dawn, 1 = High Noon
+
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+    if (dayFactor > 0.6) {
+      // BRIGHT TROPICAL CARIBBEAN DAY
+      bgGrad.addColorStop(0, '#38b6ff');
+      bgGrad.addColorStop(0.5, '#70d6ff');
+      bgGrad.addColorStop(1, '#e9d8a6');
+    } else if (dayFactor > 0.3) {
+      // GOLDEN CARIBBEAN SUNSET
+      bgGrad.addColorStop(0, '#f72585');
+      bgGrad.addColorStop(0.4, '#b5179e');
+      bgGrad.addColorStop(0.7, '#ff7b00');
+      bgGrad.addColorStop(1, '#d4af37');
+    } else {
+      // MYSTIC MOONLIT CURSED NIGHT
+      bgGrad.addColorStop(0, '#0a0d18');
+      bgGrad.addColorStop(0.5, '#161b2e');
+      bgGrad.addColorStop(1, '#05070c');
+    }
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // Glowing Wooden Floor & Bamboo Silhouette Planks
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.12)';
-    ctx.lineWidth = 1.5;
-    for (let y = 0; y < height; y += 65) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-
-    // Glowing Lanterns in corners
-    const lanternPulse = Math.sin(time * 0.003) * 0.2 + 0.8;
+    // Sun / Moon in sky
+    const orbX = (width * 0.2) + ((time * 0.02) % (width * 0.6));
+    const orbY = 90 + Math.sin(cycleTime) * 30;
     ctx.save();
-    // Left Lantern Glow
-    const g1 = ctx.createRadialGradient(60, 80, 5, 60, 80, 90);
-    g1.addColorStop(0, `rgba(255, 170, 0, ${0.4 * lanternPulse})`);
-    g1.addColorStop(1, 'rgba(255, 170, 0, 0)');
-    ctx.fillStyle = g1;
-    ctx.fillRect(0, 0, 160, 180);
-
-    // Right Lantern Glow
-    const g2 = ctx.createRadialGradient(width - 60, 80, 5, width - 60, 80, 90);
-    g2.addColorStop(0, `rgba(255, 170, 0, ${0.4 * lanternPulse})`);
-    g2.addColorStop(1, 'rgba(255, 170, 0, 0)');
-    ctx.fillStyle = g2;
-    ctx.fillRect(width - 160, 0, 160, 180);
+    ctx.beginPath();
+    ctx.arc(orbX, orbY, 32, 0, Math.PI * 2);
+    if (dayFactor > 0.4) {
+      ctx.fillStyle = '#fff475';
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 30;
+    } else {
+      ctx.fillStyle = '#d4f1f9';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 25;
+    }
+    ctx.fill();
     ctx.restore();
 
-    // Floating Embers Background Animation
-    ctx.fillStyle = 'rgba(212, 175, 55, 0.4)';
-    for (let e = 0; e < 12; e++) {
-      const ex = (Math.sin(time * 0.001 + e * 45) * 0.5 + 0.5) * width;
-      const ey = ((time * 0.04 + e * 70) % (height + 20));
-      ctx.beginPath();
-      ctx.arc(ex, height - ey, 2 + (e % 3), 0, Math.PI * 2);
+    // Ocean waves animation at bottom
+    ctx.fillStyle = dayFactor > 0.4 ? 'rgba(0, 119, 182, 0.6)' : 'rgba(5, 20, 40, 0.8)';
+    ctx.beginPath();
+    ctx.moveTo(0, height);
+    for (let x = 0; x <= width; x += 20) {
+      const waveY = height - 55 + Math.sin(x * 0.02 + time * 0.003) * 12;
+      ctx.lineTo(x, waveY);
+    }
+    ctx.lineTo(width, height);
+    ctx.fill();
+
+    // Slow-mo freeze speed multiplier
+    const speedMult = slowMoTimer > 0 ? 0.35 : 1.0;
+    if (slowMoTimer > 0) slowMoTimer--;
+
+    // Random character pop-ups (Captain Jack, Barbossa, Elizabeth Swann)
+    nextPopupTimer--;
+    if (nextPopupTimer <= 0) {
+      nextPopupTimer = 240 + Math.floor(Math.random() * 200);
+      const char = PIRATE_CHARACTERS[Math.floor(Math.random() * PIRATE_CHARACTERS.length)];
+      activePopups.push({
+        ...char,
+        x: Math.random() < 0.5 ? -180 : width + 180,
+        targetX: Math.random() < 0.5 ? 40 : width - 240,
+        y: height - 190,
+        alpha: 1.0,
+        timer: 140
+      });
+    }
+
+    // DRAW & UPDATE POPPING CHARACTERS
+    for (let i = activePopups.length - 1; i >= 0; i--) {
+      const p = activePopups[i];
+      p.x += (p.targetX - p.x) * 0.1;
+      p.timer--;
+      if (p.timer < 30) p.alpha = p.timer / 30;
+
+      if (p.timer <= 0) {
+        activePopups.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      // Dialogue bubble
+      ctx.fillStyle = 'rgba(20, 15, 24, 0.9)';
+      ctx.roundRect(p.x, p.y, 200, 75, 12);
       ctx.fill();
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.font = '28px system-ui';
+      ctx.fillText(p.icon, p.x + 10, p.y + 45);
+
+      ctx.font = '900 13px Cinzel, serif';
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.name, p.x + 50, p.y + 26);
+
+      ctx.font = '11px system-ui';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(p.quote, p.x + 50, p.y + 48, 140);
+      ctx.restore();
     }
 
     // Combo timer
@@ -260,13 +418,13 @@ export function start(canvas) {
     // UPDATE & DRAW WHOLE FRUITS
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
-      it.vy += 0.36; // Gravity
-      it.x += it.vx;
-      it.y += it.vy;
-      it.rotation += it.vRot;
+      it.vy += 0.36 * speedMult;
+      it.x += it.vx * speedMult;
+      it.y += it.vy * speedMult;
+      it.rotation += it.vRot * speedMult;
 
       if (it.y > height + 80) {
-        if (!it.isBomb && !it.sliced) {
+        if (!it.isBomb && !it.isHeart && !it.sliced) {
           lives--;
           combo = 0;
           addFloatingText(Math.max(30, Math.min(width - 30, it.x)), height - 40, 'MISSED! 💔', '#ff4444');
@@ -283,8 +441,14 @@ export function start(canvas) {
       ctx.translate(it.x, it.y);
       ctx.rotate(it.rotation);
 
-      if (it.isBomb) {
-        // Bomb Body
+      if (it.isHeart) {
+        ctx.font = '40px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 15;
+        ctx.fillText('💖', 0, 0);
+      } else if (it.isBomb) {
         ctx.beginPath();
         ctx.arc(0, 0, it.radius, 0, Math.PI * 2);
         ctx.fillStyle = it.color;
@@ -293,22 +457,11 @@ export function start(canvas) {
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Fuse Spark
-        ctx.fillStyle = '#888';
-        ctx.fillRect(-5, -it.radius - 7, 10, 7);
-        ctx.beginPath();
-        ctx.arc(0, -it.radius - 10, 5 + Math.sin(time * 0.03) * 2, 0, Math.PI * 2);
-        ctx.fillStyle = '#ff3300';
-        ctx.shadowColor = '#ffaa00';
-        ctx.shadowBlur = 12;
-        ctx.fill();
-
         ctx.font = '22px system-ui';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('💣', 0, 2);
       } else {
-        // Juicy 3D-shaded fruit
         ctx.shadowColor = it.color;
         ctx.shadowBlur = 12;
 
@@ -322,7 +475,6 @@ export function start(canvas) {
         ctx.fillStyle = it.color;
         ctx.fill();
 
-        // Gloss Highlight
         ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
         ctx.beginPath();
         ctx.arc(-it.radius * 0.35, -it.radius * 0.35, it.radius * 0.25, 0, Math.PI * 2);
@@ -334,10 +486,10 @@ export function start(canvas) {
     // UPDATE & DRAW SLICED PIECES
     for (let i = slicedPieces.length - 1; i >= 0; i--) {
       const p = slicedPieces[i];
-      p.vy += 0.48;
-      p.x += p.vx;
-      p.y += p.vy;
-      p.rotation += p.vRot;
+      p.vy += 0.48 * speedMult;
+      p.x += p.vx * speedMult;
+      p.y += p.vy * speedMult;
+      p.rotation += p.vRot * speedMult;
 
       if (p.y > height + 80) {
         slicedPieces.splice(i, 1);
@@ -368,7 +520,7 @@ export function start(canvas) {
       ctx.restore();
     }
 
-    // PARTICLES SPLATTERS
+    // PARTICLES
     for (let i = particles.length - 1; i >= 0; i--) {
       const pt = particles[i];
       pt.x += pt.vx;
@@ -390,7 +542,7 @@ export function start(canvas) {
       ctx.restore();
     }
 
-    // FLOATING HIT TEXTS
+    // FLOATING TEXTS
     for (let i = floatTexts.length - 1; i >= 0; i--) {
       const ft = floatTexts[i];
       ft.y += ft.vy;
@@ -410,7 +562,7 @@ export function start(canvas) {
       ctx.restore();
     }
 
-    // GOLDEN BLADE TRAIL
+    // BLADE TRAIL
     for (let i = bladeTrail.length - 1; i >= 0; i--) {
       bladeTrail[i].life -= 0.075;
       if (bladeTrail[i].life <= 0) {
@@ -444,7 +596,41 @@ export function start(canvas) {
       ctx.restore();
     }
 
-    // HUD: SCORE, LIVES, COMBO
+    // JUMPSCARE SCREEN OVERLAY (Davy Jones / Blackbeard)
+    if (jumpScare) {
+      jumpScare.timer--;
+      jumpScare.scale = Math.min(jumpScare.maxScale, jumpScare.scale + 0.12);
+      
+      ctx.save();
+      ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.65 : jumpScare.timer * 0.03})`;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.translate(width / 2, height / 2);
+      ctx.scale(jumpScare.scale, jumpScare.scale);
+
+      ctx.font = '110px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#00ffcc';
+      ctx.shadowBlur = 40;
+      ctx.fillText(jumpScare.icon, 0, -30);
+
+      ctx.font = '900 36px Cinzel, serif';
+      ctx.fillStyle = '#ffd700';
+      ctx.shadowColor = '#ff0000';
+      ctx.fillText(jumpScare.name.toUpperCase(), 0, 60);
+
+      ctx.font = '700 20px Cinzel, serif';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`"${jumpScare.quote}"`, 0, 95);
+      ctx.restore();
+
+      if (jumpScare.timer <= 0) {
+        jumpScare = null;
+      }
+    }
+
+    // TOP HUD: SCORE & LIVES
     ctx.save();
     ctx.font = '900 28px Cinzel, serif';
     ctx.fillStyle = '#ffd700';
@@ -458,6 +644,35 @@ export function start(canvas) {
     }
     ctx.font = '22px system-ui';
     ctx.fillText(hearts, width - 120, 48);
+
+    // LIFELINES HUD (Interactive Buttons)
+    const llY = 82;
+    // Freeze Button
+    ctx.fillStyle = lifelines.freeze > 0 ? 'rgba(0, 240, 255, 0.25)' : 'rgba(0, 0, 0, 0.4)';
+    ctx.strokeStyle = lifelines.freeze > 0 ? '#00f0ff' : '#555';
+    ctx.lineWidth = 1.5;
+    ctx.roundRect(24, llY, 50, 40, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.font = '20px system-ui';
+    ctx.fillText('❄️', 36, llY + 28);
+
+    // Blast Button
+    ctx.fillStyle = lifelines.blast > 0 ? 'rgba(255, 215, 0, 0.25)' : 'rgba(0, 0, 0, 0.4)';
+    ctx.strokeStyle = lifelines.blast > 0 ? '#ffd700' : '#555';
+    ctx.roundRect(84, llY, 50, 40, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillText('⚡', 96, llY + 28);
+
+    // Heal Button
+    ctx.fillStyle = lifelines.heal > 0 ? 'rgba(255, 0, 85, 0.25)' : 'rgba(0, 0, 0, 0.4)';
+    ctx.strokeStyle = lifelines.heal > 0 ? '#ff0055' : '#555';
+    ctx.roundRect(144, llY, 50, 40, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillText('💖', 156, llY + 28);
+
+    ctx.font = '700 10px Cinzel, serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('LIFELINES (CLICK TO USE)', 24, llY + 54);
 
     if (combo > 1) {
       ctx.font = '900 32px Cinzel, serif';

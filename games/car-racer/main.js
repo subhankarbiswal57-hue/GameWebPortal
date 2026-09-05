@@ -1,6 +1,12 @@
 import { sound } from '../../apps/portal/js/shared/audio.js';
 
-// Turbo Car Racing game engine with animated neon highway skyline, headlight beams, turbo speed lines & sound
+const PIRATE_CHARACTERS = [
+  { name: 'Captain Jack', icon: '🏴‍☠️', quote: 'Drink up me hearties, yo ho!', color: '#ffd700' },
+  { name: 'Davy Jones', icon: '🐙', quote: 'Let no man escape the abyss!', color: '#00ffcc', isScare: true },
+  { name: 'Barbossa', icon: '🍎', quote: 'Strike your colors, you blooming roaches!', color: '#ff7700' },
+  { name: 'Blackbeard', icon: '🗡️', quote: 'Mutiny is death!', color: '#ff3333', isScare: true }
+];
+
 export function start(canvas) {
   const ctx = canvas.getContext('2d');
   let width = (canvas.width = canvas.clientWidth || window.innerWidth || 800);
@@ -23,6 +29,23 @@ export function start(canvas) {
   let baseSpeed = 7;
   let maxSpeed = 16;
   let isBoosting = false;
+
+  // Lifelines:
+  // 1: Forcefield Shield (immune to 1 crash)
+  // 2: EMP Shockwave (destroys upcoming traffic)
+  // 3: Infinite Nitro Overdrive
+  let shieldActive = false;
+  let lifelines = {
+    shield: 1,
+    emp: 1,
+    overdrive: 1
+  };
+  let overdriveTimer = 0;
+
+  // Jumpscares & Popups
+  let activePopups = [];
+  let jumpScare = null;
+  let nextPopupTimer = 200;
 
   const roadWidth = Math.min(width * 0.88, 540);
   const roadLeft = (width - roadWidth) / 2;
@@ -47,7 +70,6 @@ export function start(canvas) {
   let spawnTimer = 0;
   let coinSpawnTimer = 0;
 
-  // Initialize animated speed lines
   for (let s = 0; s < 25; s++) {
     speedLines.push({
       x: Math.random() * width,
@@ -55,6 +77,17 @@ export function start(canvas) {
       len: 20 + Math.random() * 40,
       speed: 8 + Math.random() * 12
     });
+  }
+
+  function triggerJumpscare(char) {
+    jumpScare = {
+      ...char,
+      alpha: 1.0,
+      scale: 0.2,
+      maxScale: 1.4,
+      timer: 55
+    };
+    sound.playCrash();
   }
 
   function onKeyDown(e) {
@@ -65,7 +98,23 @@ export function start(canvas) {
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
     if (e.key === ' ' || e.key === 'Shift') {
       keys.boost = true;
-      if (nitro > 10) sound.playNitro();
+      if (nitro > 10 || overdriveTimer > 0) sound.playNitro();
+    }
+    // Key shortcuts for lifelines: 1, 2, 3
+    if (e.key === '1' && lifelines.shield > 0) {
+      lifelines.shield--;
+      shieldActive = true;
+      sound.playVictory();
+    }
+    if (e.key === '2' && lifelines.emp > 0) {
+      lifelines.emp--;
+      traffic = [];
+      sound.playCrash();
+    }
+    if (e.key === '3' && lifelines.overdrive > 0) {
+      lifelines.overdrive--;
+      overdriveTimer = 300;
+      sound.playNitro();
     }
   }
 
@@ -84,10 +133,42 @@ export function start(canvas) {
     player.targetX = Math.max(roadLeft + 30, Math.min(roadLeft + roadWidth - 30, x));
   }
 
+  function onPointerDown(e) {
+    sound.init();
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+
+    // Check Lifelines UI clicks
+    if (py > 75 && py < 125) {
+      if (px > 24 && px < 74 && lifelines.shield > 0) {
+        lifelines.shield--;
+        shieldActive = true;
+        sound.playVictory();
+        return;
+      }
+      if (px > 84 && px < 134 && lifelines.emp > 0) {
+        lifelines.emp--;
+        traffic = [];
+        sound.playCrash();
+        return;
+      }
+      if (px > 144 && px < 194 && lifelines.overdrive > 0) {
+        lifelines.overdrive--;
+        overdriveTimer = 300;
+        sound.playNitro();
+        return;
+      }
+    }
+  }
+
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   canvas.addEventListener('mousemove', onPointerMove);
   canvas.addEventListener('touchmove', onPointerMove, { passive: true });
+  canvas.addEventListener('mousedown', onPointerDown);
 
   const TRAFFIC_TYPES = [
     { color: '#2b7fff', w: 44, h: 74, speedFactor: 0.55 },
@@ -140,9 +221,19 @@ export function start(canvas) {
   }
 
   function triggerCrash() {
+    if (shieldActive) {
+      shieldActive = false;
+      sound.playCrash();
+      triggerJumpscare(PIRATE_CHARACTERS[1]); // Davy Jones appears!
+      return;
+    }
+
     running = false;
     sound.playCrash();
     
+    // Jumpscare on game over crash
+    triggerJumpscare(PIRATE_CHARACTERS[3]);
+
     for (let i = 0; i < 45; i++) {
       const angle = Math.random() * Math.PI * 2;
       const spd = 3 + Math.random() * 9;
@@ -159,16 +250,18 @@ export function start(canvas) {
     }
 
     const finalScore = Math.floor(distance * 10 + coinsCollected * 100);
-    canvas.dispatchEvent(new CustomEvent('gameover', {
-      detail: {
-        score: finalScore,
-        stats: [
-          { label: 'Distance', value: `${Math.floor(distance)} m` },
-          { label: 'Coins Collected', value: coinsCollected },
-          { label: 'Top Speed', value: `${Math.floor(speed * 18)} km/h` }
-        ]
-      }
-    }));
+    setTimeout(() => {
+      canvas.dispatchEvent(new CustomEvent('gameover', {
+        detail: {
+          score: finalScore,
+          stats: [
+            { label: 'Distance', value: `${Math.floor(distance)} m` },
+            { label: 'Coins Collected', value: coinsCollected },
+            { label: 'Top Speed', value: `${Math.floor(speed * 18)} km/h` }
+          ]
+        }
+      }));
+    }, 600);
   }
 
   let rafId = null;
@@ -176,10 +269,16 @@ export function start(canvas) {
   function render(time) {
     if (!running) return;
 
-    if (keys.boost && nitro > 0) {
+    // --- DAY & NIGHT TRANSITION CYCLE (Smooth day, dusk, night blend) ---
+    const cycleTime = (time * 0.00018) % (Math.PI * 2);
+    const dayFactor = (Math.sin(cycleTime) + 1) / 2;
+
+    if (overdriveTimer > 0) overdriveTimer--;
+
+    if ((keys.boost && nitro > 0) || overdriveTimer > 0) {
       isBoosting = true;
       speed = Math.min(maxSpeed, speed + 0.35);
-      nitro = Math.max(0, nitro - 0.65);
+      if (overdriveTimer === 0) nitro = Math.max(0, nitro - 0.65);
     } else {
       isBoosting = false;
       if (keys.up) {
@@ -210,28 +309,44 @@ export function start(canvas) {
       spawnCoin();
     }
 
-    // --- DRAW BACKGROUND: CITY SKYLINE AT NIGHT ---
-    ctx.fillStyle = '#06080e';
+    // DRAW DYNAMIC SKY (Day -> Sunset -> Night)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, height * 0.5);
+    if (dayFactor > 0.6) {
+      // Sunny Day
+      skyGrad.addColorStop(0, '#1d9bf0');
+      skyGrad.addColorStop(1, '#8be4fc');
+    } else if (dayFactor > 0.3) {
+      // Sunset
+      skyGrad.addColorStop(0, '#f72585');
+      skyGrad.addColorStop(0.5, '#7209b7');
+      skyGrad.addColorStop(1, '#f8961e');
+    } else {
+      // Night
+      skyGrad.addColorStop(0, '#04060b');
+      skyGrad.addColorStop(1, '#0e1424');
+    }
+    ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // Distant Neon Grid & Building Silhouettes
-    ctx.fillStyle = '#0f1422';
-    for (let b = 0; b < width; b += 70) {
-      const bHeight = 80 + (Math.sin(b * 0.04) * 0.5 + 0.5) * 60;
-      ctx.fillRect(b, 0, 65, bHeight);
-      // Window dots
-      ctx.fillStyle = 'rgba(212, 175, 55, 0.25)';
-      for (let w = 15; w < bHeight - 10; w += 16) {
-        ctx.fillRect(b + 10, w, 6, 8);
-        ctx.fillRect(b + 30, w, 6, 8);
+    // City & Mountain Silhouettes
+    ctx.fillStyle = dayFactor > 0.5 ? '#1a3250' : '#0a0e1a';
+    for (let b = 0; b < width; b += 65) {
+      const bHeight = 90 + (Math.sin(b * 0.05) * 0.5 + 0.5) * 70;
+      ctx.fillRect(b, height * 0.15, 60, bHeight);
+      if (dayFactor <= 0.5) {
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+        for (let w = height * 0.18; w < height * 0.15 + bHeight - 10; w += 16) {
+          ctx.fillRect(b + 8, w, 6, 8);
+          ctx.fillRect(b + 32, w, 6, 8);
+        }
+        ctx.fillStyle = '#0a0e1a';
       }
-      ctx.fillStyle = '#0f1422';
     }
 
-    // Speed Lines Effect in background
+    // Motion Speed Lines
     if (isBoosting || speed > 10) {
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      ctx.lineWidth = 2;
       for (const sl of speedLines) {
         sl.y += sl.speed + speed;
         if (sl.y > height) { sl.y = -40; sl.x = Math.random() * width; }
@@ -242,28 +357,21 @@ export function start(canvas) {
       }
     }
 
-    // Road Grass/Side Barriers
-    ctx.fillStyle = '#14111a';
+    // Road Grass
+    ctx.fillStyle = dayFactor > 0.5 ? '#2d6a4f' : '#14111a';
     ctx.fillRect(roadLeft - 30, 0, roadWidth + 60, height);
 
-    // Main Road Asphalt
-    const roadGrad = ctx.createLinearGradient(roadLeft, 0, roadLeft + roadWidth, 0);
-    roadGrad.addColorStop(0, '#1c1b24');
-    roadGrad.addColorStop(0.5, '#252330');
-    roadGrad.addColorStop(1, '#1c1b24');
-    ctx.fillStyle = roadGrad;
+    // Main Road
+    ctx.fillStyle = dayFactor > 0.5 ? '#3a3a46' : '#1c1b24';
     ctx.fillRect(roadLeft, 0, roadWidth, height);
 
-    // Glowing Neon Road Borders
+    // Neon Road Borders
     ctx.strokeStyle = isBoosting ? '#00f0ff' : '#d4af37';
     ctx.lineWidth = 5;
-    ctx.shadowColor = isBoosting ? '#00f0ff' : '#d4af37';
-    ctx.shadowBlur = 15;
     ctx.beginPath();
     ctx.moveTo(roadLeft, 0); ctx.lineTo(roadLeft, height);
     ctx.moveTo(roadLeft + roadWidth, 0); ctx.lineTo(roadLeft + roadWidth, height);
     ctx.stroke();
-    ctx.shadowBlur = 0;
 
     // Dashed Lane Dividers
     ctx.strokeStyle = '#ffd700';
@@ -280,24 +388,73 @@ export function start(canvas) {
     }
     ctx.setLineDash([]);
 
-    // Headlight Beams from player car
-    const headBeam = ctx.createLinearGradient(player.x, player.y, player.x, player.y - 220);
-    headBeam.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-    headBeam.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = headBeam;
-    ctx.beginPath();
-    ctx.moveTo(player.x - 18, player.y - 20);
-    ctx.lineTo(player.x - 55, player.y - 220);
-    ctx.lineTo(player.x + 55, player.y - 220);
-    ctx.lineTo(player.x + 18, player.y - 20);
-    ctx.closePath();
-    ctx.fill();
+    // Character Popups
+    nextPopupTimer--;
+    if (nextPopupTimer <= 0) {
+      nextPopupTimer = 240 + Math.floor(Math.random() * 200);
+      const char = PIRATE_CHARACTERS[Math.floor(Math.random() * PIRATE_CHARACTERS.length)];
+      activePopups.push({
+        ...char,
+        x: Math.random() < 0.5 ? -180 : width + 180,
+        targetX: Math.random() < 0.5 ? 40 : width - 240,
+        y: height - 190,
+        alpha: 1.0,
+        timer: 140
+      });
+    }
 
-    // Exhaust particles
+    for (let i = activePopups.length - 1; i >= 0; i--) {
+      const p = activePopups[i];
+      p.x += (p.targetX - p.x) * 0.1;
+      p.timer--;
+      if (p.timer < 30) p.alpha = p.timer / 30;
+
+      if (p.timer <= 0) {
+        activePopups.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = 'rgba(20, 15, 24, 0.9)';
+      ctx.roundRect(p.x, p.y, 200, 75, 12);
+      ctx.fill();
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.font = '28px system-ui';
+      ctx.fillText(p.icon, p.x + 10, p.y + 45);
+
+      ctx.font = '900 13px Cinzel, serif';
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.name, p.x + 50, p.y + 26);
+
+      ctx.font = '11px system-ui';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(p.quote, p.x + 50, p.y + 48, 140);
+      ctx.restore();
+    }
+
+    // Headlight Beams (Darker during night)
+    if (dayFactor <= 0.6) {
+      const headBeam = ctx.createLinearGradient(player.x, player.y, player.x, player.y - 240);
+      headBeam.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+      headBeam.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = headBeam;
+      ctx.beginPath();
+      ctx.moveTo(player.x - 18, player.y - 20);
+      ctx.lineTo(player.x - 65, player.y - 240);
+      ctx.lineTo(player.x + 65, player.y - 240);
+      ctx.lineTo(player.x + 18, player.y - 20);
+      ctx.closePath();
+      ctx.fill();
+    }
+
     createExhaust(player.x - 14, player.y + player.h / 2, isBoosting);
     createExhaust(player.x + 14, player.y + player.h / 2, isBoosting);
 
-    // UPDATE & DRAW PARTICLES
+    // PARTICLES
     for (let i = particles.length - 1; i >= 0; i--) {
       const pt = particles[i];
       pt.x += pt.vx;
@@ -316,7 +473,7 @@ export function start(canvas) {
       ctx.restore();
     }
 
-    // UPDATE & DRAW COINS
+    // COINS
     for (let i = coins.length - 1; i >= 0; i--) {
       const c = coins[i];
       c.y += speed;
@@ -357,7 +514,7 @@ export function start(canvas) {
       ctx.restore();
     }
 
-    // UPDATE & DRAW TRAFFIC
+    // TRAFFIC
     for (let i = traffic.length - 1; i >= 0; i--) {
       const t = traffic[i];
       t.y += speed - (baseSpeed * t.speedFactor);
@@ -372,67 +529,89 @@ export function start(canvas) {
         Math.abs(t.y - player.y) < (t.h + player.h) * 0.42
       ) {
         triggerCrash();
-        return;
+        if (!running) return;
+        traffic.splice(i, 1);
+        continue;
       }
 
       ctx.save();
       ctx.translate(t.x, t.y);
-
-      // Shadow
       ctx.fillStyle = 'rgba(0,0,0,0.55)';
       ctx.fillRect(-t.w / 2 + 5, -t.h / 2 + 7, t.w, t.h);
 
-      // Chassis
       ctx.fillStyle = t.color;
       ctx.beginPath();
       ctx.roundRect(-t.w / 2, -t.h / 2, t.w, t.h, 12);
       ctx.fill();
 
-      // Windshield
       ctx.fillStyle = '#0f1422';
       ctx.fillRect(-t.w * 0.35, -t.h * 0.22, t.w * 0.7, t.h * 0.46);
 
-      // Taillights
       ctx.fillStyle = '#ff2222';
-      ctx.shadowColor = '#ff0000';
-      ctx.shadowBlur = 8;
       ctx.fillRect(-t.w * 0.42, t.h / 2 - 6, 9, 5);
       ctx.fillRect(t.w * 0.42 - 9, t.h / 2 - 6, 9, 5);
-
       ctx.restore();
     }
 
-    // DRAW PLAYER SUPERCAR
+    // PLAYER CAR
     ctx.save();
     ctx.translate(player.x, player.y);
 
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(-player.w / 2 + 6, -player.h / 2 + 8, player.w, player.h);
-
-    ctx.shadowColor = isBoosting ? '#00f0ff' : '#ffaa00';
-    ctx.shadowBlur = 18;
+    if (shieldActive) {
+      // Forcefield Glow
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(0, 0, player.h * 0.65, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     ctx.fillStyle = player.color;
     ctx.beginPath();
     ctx.roundRect(-player.w / 2, -player.h / 2, player.w, player.h, 14);
     ctx.fill();
 
-    // Windshield & Racing Decals
     ctx.fillStyle = '#00f0ff';
     ctx.fillRect(-player.w * 0.35, -player.h * 0.32, player.w * 0.7, player.h * 0.26);
 
-    // Headlights
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(-player.w * 0.42, -player.h / 2, 9, 5);
-    ctx.fillRect(player.w * 0.42 - 9, -player.h / 2, 9, 5);
-
-    // Golden Racing Stripe
     ctx.fillStyle = '#ffd700';
     ctx.fillRect(-3, -player.h / 2 + 2, 6, player.h - 8);
-
     ctx.restore();
 
-    // HUD: DISTANCE, SPEED, COINS, NITRO
+    // JUMPSCARE
+    if (jumpScare) {
+      jumpScare.timer--;
+      jumpScare.scale = Math.min(jumpScare.maxScale, jumpScare.scale + 0.12);
+      
+      ctx.save();
+      ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.7 : jumpScare.timer * 0.03})`;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.translate(width / 2, height / 2);
+      ctx.scale(jumpScare.scale, jumpScare.scale);
+
+      ctx.font = '110px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#00ffcc';
+      ctx.shadowBlur = 40;
+      ctx.fillText(jumpScare.icon, 0, -30);
+
+      ctx.font = '900 36px Cinzel, serif';
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText(jumpScare.name.toUpperCase(), 0, 60);
+
+      ctx.font = '700 20px Cinzel, serif';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`"${jumpScare.quote}"`, 0, 95);
+      ctx.restore();
+
+      if (jumpScare.timer <= 0) jumpScare = null;
+    }
+
+    // HUD: DISTANCE & LIFELINES
     ctx.save();
     ctx.font = '900 24px Cinzel, serif';
     ctx.fillStyle = '#ffd700';
@@ -446,6 +625,34 @@ export function start(canvas) {
 
     ctx.fillStyle = '#ffd700';
     ctx.fillText(`🪙 ${coinsCollected}`, width - 120, 45);
+
+    // LIFELINES HUD BUTTONS
+    const llY = 82;
+    // Shield
+    ctx.fillStyle = (lifelines.shield > 0 || shieldActive) ? 'rgba(0, 240, 255, 0.25)' : 'rgba(0,0,0,0.4)';
+    ctx.strokeStyle = '#00f0ff';
+    ctx.roundRect(24, llY, 50, 40, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.font = '20px system-ui';
+    ctx.fillText('🛡️', 36, llY + 28);
+
+    // EMP
+    ctx.fillStyle = lifelines.emp > 0 ? 'rgba(255, 215, 0, 0.25)' : 'rgba(0,0,0,0.4)';
+    ctx.strokeStyle = '#ffd700';
+    ctx.roundRect(84, llY, 50, 40, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillText('⚡', 96, llY + 28);
+
+    // Overdrive
+    ctx.fillStyle = (lifelines.overdrive > 0 || overdriveTimer > 0) ? 'rgba(255, 0, 85, 0.25)' : 'rgba(0,0,0,0.4)';
+    ctx.strokeStyle = '#ff0055';
+    ctx.roundRect(144, llY, 50, 40, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillText('🚀', 156, llY + 28);
+
+    ctx.font = '700 10px Cinzel, serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('LIFELINES [1, 2, 3]', 24, llY + 54);
 
     // Nitro Bar
     ctx.fillStyle = 'rgba(20, 15, 24, 0.85)';
@@ -475,6 +682,7 @@ export function start(canvas) {
       window.removeEventListener('keyup', onKeyUp);
       canvas.removeEventListener('mousemove', onPointerMove);
       canvas.removeEventListener('touchmove', onPointerMove);
+      canvas.removeEventListener('mousedown', onPointerDown);
     }
   };
 }

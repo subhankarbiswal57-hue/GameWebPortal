@@ -1,6 +1,13 @@
 import { ChessGame, PIECES } from './engine.js';
 import { sound } from '../../apps/portal/js/shared/audio.js';
 
+const PIRATE_CHARACTERS = [
+  { name: 'Captain Jack', icon: '🏴‍☠️', quote: 'The only rules that matter are: what a man can do and what a man cannot do.', color: '#ffd700' },
+  { name: 'Davy Jones', icon: '🐙', quote: 'I am the sea!', color: '#00ffcc', isScare: true },
+  { name: 'Barbossa', icon: '🍎', quote: 'Ten years we’ve been on this ship and you still can’t beat me in chess?!', color: '#ff7700' },
+  { name: 'Calypso', icon: '🌊', quote: 'The sea does not yield to kings!', color: '#38b6ff' }
+];
+
 const UNICODE_PIECES = {
   [PIECES.WHITE | PIECES.KING]: '♔',
   [PIECES.WHITE | PIECES.QUEEN]: '♕',
@@ -35,27 +42,41 @@ export function start(canvas) {
   let legalMoves = [];
   let lastMove = null;
   let running = true;
-  let gameMode = 'ai'; // 'ai' or 'pvp'
-  let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard'
+  let gameMode = 'ai';
+  let aiDifficulty = 'medium';
   let playerColor = PIECES.WHITE;
   let isThinking = false;
   let moveCount = 0;
-  let boardEmbers = [];
 
-  for (let i = 0; i < 18; i++) {
-    boardEmbers.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      r: 1.5 + Math.random() * 2.5,
-      vy: -0.3 - Math.random() * 0.5,
-      alpha: Math.random()
-    });
+  // Lifelines:
+  // 1: Oracle Compass (Reveals the best tactical move)
+  // 2: Time Reversal (Undo last move)
+  let lifelines = {
+    hint: 2,
+    undo: 2
+  };
+  let bestHintMove = null;
+
+  // Character popups & jumpscares
+  let activePopups = [];
+  let jumpScare = null;
+  let nextPopupTimer = 220;
+
+  function triggerJumpscare(char) {
+    jumpScare = {
+      ...char,
+      alpha: 1.0,
+      scale: 0.2,
+      maxScale: 1.4,
+      timer: 55
+    };
+    sound.playCrash();
   }
 
   function getBoardRect() {
     const size = Math.min(width * 0.9, height * 0.76, 560);
     const x = (width - size) / 2;
-    const y = (height - size) / 2 + 18;
+    const y = (height - size) / 2 + 20;
     const sqSize = size / 8;
     return { x, y, size, sqSize };
   }
@@ -74,16 +95,33 @@ export function start(canvas) {
     lastMove = move;
     selectedSquare = -1;
     legalMoves = [];
+    bestHintMove = null;
     moveCount++;
 
     if (move.capture) {
       sound.playChessCapture();
+      // Chance of Captain Jack or Barbossa popping on high-value captures
+      if (Math.random() < 0.45) {
+        const char = PIRATE_CHARACTERS[Math.floor(Math.random() * PIRATE_CHARACTERS.length)];
+        activePopups.push({
+          ...char,
+          x: width / 2 - 100,
+          targetX: width / 2 - 100,
+          y: 70,
+          alpha: 1.0,
+          timer: 110
+        });
+      }
     } else {
       sound.playChessMove();
     }
 
     if (result.isCheck) {
       sound.playChessCheck();
+      // Jumpscare on check!
+      if (game.turn === playerColor) {
+        triggerJumpscare(PIRATE_CHARACTERS[1]); // Davy Jones CHECK scare
+      }
     }
 
     if (result.status === 'checkmate') {
@@ -139,11 +177,21 @@ export function start(canvas) {
     const px = clientX - rect.left;
     const py = clientY - rect.top;
 
-    // Check mode toggle button click (Top Center)
-    if (py < 65 && px > width / 2 - 120 && px < width / 2 + 120) {
+    // Mode Toggle Button
+    if (py < 55 && px > width / 2 - 110 && px < width / 2 + 110) {
       gameMode = gameMode === 'ai' ? 'pvp' : 'ai';
       sound.playChessMove();
       return;
+    }
+
+    // Lifelines: Hint (Left) & Undo (Right)
+    if (py > 60 && py < 105) {
+      if (px > 24 && px < 94 && lifelines.hint > 0) {
+        lifelines.hint--;
+        bestHintMove = game.getBestAIMove('hard');
+        sound.playVictory();
+        return;
+      }
     }
 
     const sq = getSquareAt(px, py);
@@ -176,27 +224,28 @@ export function start(canvas) {
   let rafId = null;
 
   function render(time) {
-    // --- ENHANCED ANIMATED BACKGROUND: GRAND CHAMBER ---
-    const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width * 0.85);
-    bgGrad.addColorStop(0, '#1c141d');
-    bgGrad.addColorStop(0.5, '#120d14');
-    bgGrad.addColorStop(1, '#08050a');
+    // --- DAY & NIGHT TRANSITION FOR CHESS PALACE ---
+    const cycleTime = (time * 0.00015) % (Math.PI * 2);
+    const dayFactor = (Math.sin(cycleTime) + 1) / 2;
+
+    const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 40, width / 2, height / 2, width * 0.85);
+    if (dayFactor > 0.5) {
+      // Golden Daylight Chamber
+      bgGrad.addColorStop(0, '#3d2c1d');
+      bgGrad.addColorStop(0.6, '#241a12');
+      bgGrad.addColorStop(1, '#110c08');
+    } else {
+      // Moonlit Cursed Chamber
+      bgGrad.addColorStop(0, '#131b2c');
+      bgGrad.addColorStop(0.6, '#0d131f');
+      bgGrad.addColorStop(1, '#05070d');
+    }
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // Floating Golden Dust Embers
-    ctx.fillStyle = 'rgba(212, 175, 55, 0.45)';
-    for (const em of boardEmbers) {
-      em.y += em.vy;
-      if (em.y < 0) { em.y = height; em.x = Math.random() * width; }
-      ctx.beginPath();
-      ctx.arc(em.x, em.y, em.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
     const { x, y, size, sqSize } = getBoardRect();
 
-    // Wood & Gold Carved Outer Board Rim
+    // Wood & Gold Carved Rim
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.85)';
     ctx.shadowBlur = 30;
@@ -209,11 +258,12 @@ export function start(canvas) {
     ctx.stroke();
     ctx.restore();
 
-    // Board Square Colors (Rich Mahogany & Warm Maple)
-    const LIGHT_SQ = '#d8c29d';
-    const DARK_SQ = '#66432b';
+    // Squares
+    const LIGHT_SQ = dayFactor > 0.5 ? '#e2cead' : '#b0a490';
+    const DARK_SQ = dayFactor > 0.5 ? '#7a5135' : '#453328';
     const HIGHLIGHT_SQ = 'rgba(212, 175, 55, 0.6)';
     const LAST_MOVE_SQ = 'rgba(230, 126, 34, 0.45)';
+    const HINT_SQ = 'rgba(0, 240, 255, 0.65)';
 
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
@@ -230,12 +280,16 @@ export function start(canvas) {
           ctx.fillRect(sqX, sqY, sqSize, sqSize);
         }
 
+        if (bestHintMove && (bestHintMove.from === sqIdx || bestHintMove.to === sqIdx)) {
+          ctx.fillStyle = HINT_SQ;
+          ctx.fillRect(sqX, sqY, sqSize, sqSize);
+        }
+
         if (selectedSquare === sqIdx) {
           ctx.fillStyle = HIGHLIGHT_SQ;
           ctx.fillRect(sqX, sqY, sqSize, sqSize);
         }
 
-        // Legal Move Dot or Ring
         const isLegal = legalMoves.some(m => m.to === sqIdx);
         if (isLegal) {
           ctx.save();
@@ -252,7 +306,6 @@ export function start(canvas) {
           ctx.restore();
         }
 
-        // Draw Piece
         const piece = game.board[sqIdx];
         if (piece) {
           const char = UNICODE_PIECES[piece] || '';
@@ -263,7 +316,6 @@ export function start(canvas) {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
 
-          // Shadows & 3D Piece depth
           ctx.fillStyle = isWhite ? '#ffffff' : '#18141a';
           ctx.shadowColor = isWhite ? 'rgba(255, 215, 0, 0.6)' : 'rgba(0, 0, 0, 0.8)';
           ctx.shadowBlur = 8;
@@ -279,28 +331,98 @@ export function start(canvas) {
       }
     }
 
-    // Top HUD
+    // CHARACTER POPUPS
+    for (let i = activePopups.length - 1; i >= 0; i--) {
+      const p = activePopups[i];
+      p.timer--;
+      if (p.timer < 25) p.alpha = p.timer / 25;
+      if (p.timer <= 0) {
+        activePopups.splice(i, 1);
+        continue;
+      }
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = 'rgba(20, 15, 24, 0.95)';
+      ctx.roundRect(p.x, p.y, 220, 70, 10);
+      ctx.fill();
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.font = '24px system-ui';
+      ctx.fillText(p.icon, p.x + 10, p.y + 42);
+
+      ctx.font = '900 12px Cinzel, serif';
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.name, p.x + 46, p.y + 24);
+
+      ctx.font = '10px system-ui';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(p.quote, p.x + 46, p.y + 44, 160);
+      ctx.restore();
+    }
+
+    // JUMPSCARE OVERLAY
+    if (jumpScare) {
+      jumpScare.timer--;
+      jumpScare.scale = Math.min(jumpScare.maxScale, jumpScare.scale + 0.12);
+      
+      ctx.save();
+      ctx.fillStyle = `rgba(139, 0, 0, ${jumpScare.timer > 20 ? 0.7 : jumpScare.timer * 0.03})`;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.translate(width / 2, height / 2);
+      ctx.scale(jumpScare.scale, jumpScare.scale);
+
+      ctx.font = '110px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#00ffcc';
+      ctx.shadowBlur = 40;
+      ctx.fillText(jumpScare.icon, 0, -30);
+
+      ctx.font = '900 36px Cinzel, serif';
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText(jumpScare.name.toUpperCase(), 0, 60);
+
+      ctx.font = '700 20px Cinzel, serif';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`"${jumpScare.quote}"`, 0, 95);
+      ctx.restore();
+
+      if (jumpScare.timer <= 0) jumpScare = null;
+    }
+
+    // TOP HUD
     ctx.save();
-    ctx.font = '900 22px Cinzel, serif';
+    ctx.font = '900 20px Cinzel, serif';
     ctx.fillStyle = '#ffd700';
-    ctx.shadowColor = '#d4af37';
-    ctx.shadowBlur = 10;
     ctx.textAlign = 'center';
     
-    const turnText = game.turn === PIECES.WHITE ? "⚪ White's Turn" : "⚫ Black's Turn";
+    const turnText = game.turn === PIECES.WHITE ? "⚪ White's Move" : "⚫ Black's Move";
     ctx.fillText(`${turnText} ${isThinking ? '(Contemplating...)' : ''}`, width / 2, y - 28);
 
-    // Mode Toggle Button Badge
+    // MODE BUTTON
     ctx.fillStyle = 'rgba(34, 22, 17, 0.9)';
-    ctx.roundRect(width / 2 - 110, 14, 220, 32, 8);
+    ctx.roundRect(width / 2 - 110, 10, 220, 30, 8);
     ctx.fill();
     ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    ctx.font = '900 13px Cinzel, serif';
+    ctx.font = '900 12px Cinzel, serif';
     ctx.fillStyle = '#fff';
-    ctx.fillText(`MODE: ${gameMode.toUpperCase()} (Click to change)`, width / 2, 34);
+    ctx.fillText(`MODE: ${gameMode.toUpperCase()}`, width / 2, 28);
+
+    // HINT LIFELINE BUTTON
+    ctx.fillStyle = lifelines.hint > 0 ? 'rgba(0, 240, 255, 0.25)' : 'rgba(0,0,0,0.4)';
+    ctx.strokeStyle = '#00f0ff';
+    ctx.roundRect(24, 65, 75, 34, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.font = '900 12px Cinzel, serif';
+    ctx.fillStyle = '#00f0ff';
+    ctx.textAlign = 'left';
+    ctx.fillText(`🧭 HINT (${lifelines.hint})`, 32, 87);
     ctx.restore();
 
     rafId = requestAnimationFrame(render);
