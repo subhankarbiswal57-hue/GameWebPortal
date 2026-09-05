@@ -19,14 +19,16 @@ const UNICODE_PIECES = {
 
 export function start(canvas) {
   const ctx = canvas.getContext('2d');
-  let width = (canvas.width = canvas.clientWidth || 800);
-  let height = (canvas.height = canvas.clientHeight || 600);
+  let width = (canvas.width = canvas.clientWidth || window.innerWidth || 800);
+  let height = (canvas.height = canvas.clientHeight || window.innerHeight || 600);
 
   function resize() {
-    width = canvas.width = canvas.clientWidth || 800;
-    height = canvas.height = canvas.clientHeight || 600;
+    if (!canvas) return;
+    width = canvas.width = canvas.clientWidth || window.innerWidth || 800;
+    height = canvas.height = canvas.clientHeight || window.innerHeight || 600;
   }
   window.addEventListener('resize', resize);
+  setTimeout(resize, 50);
 
   const game = new ChessGame();
   let selectedSquare = -1;
@@ -38,12 +40,22 @@ export function start(canvas) {
   let playerColor = PIECES.WHITE;
   let isThinking = false;
   let moveCount = 0;
+  let boardEmbers = [];
 
-  // Board layout sizing
+  for (let i = 0; i < 18; i++) {
+    boardEmbers.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r: 1.5 + Math.random() * 2.5,
+      vy: -0.3 - Math.random() * 0.5,
+      alpha: Math.random()
+    });
+  }
+
   function getBoardRect() {
-    const size = Math.min(width * 0.9, height * 0.8, 540);
+    const size = Math.min(width * 0.9, height * 0.76, 560);
     const x = (width - size) / 2;
-    const y = (height - size) / 2 + 10;
+    const y = (height - size) / 2 + 18;
     const sqSize = size / 8;
     return { x, y, size, sqSize };
   }
@@ -76,13 +88,10 @@ export function start(canvas) {
 
     if (result.status === 'checkmate') {
       running = false;
-      const winner = game.turn === PIECES.WHITE ? 'Black' : 'White';
       const playerWon = (game.turn !== playerColor);
       if (playerWon) sound.playVictory();
 
-      // Elo / Score computation
       const calculatedScore = playerWon ? Math.max(600, 1600 - moveCount * 15) : 300;
-
       canvas.dispatchEvent(new CustomEvent('gameover', {
         detail: {
           score: calculatedScore,
@@ -109,7 +118,6 @@ export function start(canvas) {
       return;
     }
 
-    // Trigger AI move if AI turn
     if (gameMode === 'ai' && game.turn !== playerColor && running) {
       isThinking = true;
       setTimeout(() => {
@@ -126,31 +134,36 @@ export function start(canvas) {
   function onPointerDown(e) {
     if (!running || isThinking) return;
     const rect = canvas.getBoundingClientRect();
-    const px = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
-    const py = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-    const sq = getSquareAt(px, py);
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
 
-    if (sq === -1) {
-      // Check mode toggle click
-      if (py < 60 && px > width / 2 - 100 && px < width / 2 + 100) {
-        gameMode = gameMode === 'ai' ? 'pvp' : 'ai';
-        return;
-      }
+    // Check mode toggle button click (Top Center)
+    if (py < 65 && px > width / 2 - 120 && px < width / 2 + 120) {
+      gameMode = gameMode === 'ai' ? 'pvp' : 'ai';
+      sound.playChessMove();
       return;
     }
 
-    // If destination is in legal moves
+    const sq = getSquareAt(px, py);
+    if (sq === -1) {
+      selectedSquare = -1;
+      legalMoves = [];
+      return;
+    }
+
     const matchingMove = legalMoves.find(m => m.to === sq);
     if (matchingMove) {
       makeMove(matchingMove);
       return;
     }
 
-    // Select piece
     const piece = game.board[sq];
     if (piece && (gameMode === 'pvp' || game.getPieceColor(piece) === playerColor)) {
       selectedSquare = sq;
       legalMoves = game.getLegalMoves(sq);
+      sound.playChessMove();
     } else {
       selectedSquare = -1;
       legalMoves = [];
@@ -163,26 +176,44 @@ export function start(canvas) {
   let rafId = null;
 
   function render(time) {
-    // Background Dark Slate
-    ctx.fillStyle = '#0f141f';
+    // --- ENHANCED ANIMATED BACKGROUND: GRAND CHAMBER ---
+    const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width * 0.85);
+    bgGrad.addColorStop(0, '#1c141d');
+    bgGrad.addColorStop(0.5, '#120d14');
+    bgGrad.addColorStop(1, '#08050a');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
+
+    // Floating Golden Dust Embers
+    ctx.fillStyle = 'rgba(212, 175, 55, 0.45)';
+    for (const em of boardEmbers) {
+      em.y += em.vy;
+      if (em.y < 0) { em.y = height; em.x = Math.random() * width; }
+      ctx.beginPath();
+      ctx.arc(em.x, em.y, em.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     const { x, y, size, sqSize } = getBoardRect();
 
-    // Board Outer Border & Shadow
+    // Wood & Gold Carved Outer Board Rim
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = '#1c2436';
-    ctx.roundRect(x - 12, y - 12, size + 24, size + 24, 12);
+    ctx.shadowColor = 'rgba(0,0,0,0.85)';
+    ctx.shadowBlur = 30;
+    ctx.fillStyle = '#221611';
+    ctx.roundRect(x - 18, y - 18, size + 36, size + 36, 16);
     ctx.fill();
+
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 3;
+    ctx.stroke();
     ctx.restore();
 
-    // Draw 64 Squares
-    const LIGHT_SQ = '#3a4a6b';
-    const DARK_SQ = '#232d42';
-    const HIGHLIGHT_SQ = 'rgba(0, 240, 255, 0.4)';
-    const LAST_MOVE_SQ = 'rgba(255, 215, 0, 0.3)';
+    // Board Square Colors (Rich Mahogany & Warm Maple)
+    const LIGHT_SQ = '#d8c29d';
+    const DARK_SQ = '#66432b';
+    const HIGHLIGHT_SQ = 'rgba(212, 175, 55, 0.6)';
+    const LAST_MOVE_SQ = 'rgba(230, 126, 34, 0.45)';
 
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
@@ -194,48 +225,53 @@ export function start(canvas) {
         ctx.fillStyle = isLight ? LIGHT_SQ : DARK_SQ;
         ctx.fillRect(sqX, sqY, sqSize, sqSize);
 
-        // Highlight last move
         if (lastMove && (lastMove.from === sqIdx || lastMove.to === sqIdx)) {
           ctx.fillStyle = LAST_MOVE_SQ;
           ctx.fillRect(sqX, sqY, sqSize, sqSize);
         }
 
-        // Highlight selected
         if (selectedSquare === sqIdx) {
           ctx.fillStyle = HIGHLIGHT_SQ;
           ctx.fillRect(sqX, sqY, sqSize, sqSize);
         }
 
-        // Legal move indicator
+        // Legal Move Dot or Ring
         const isLegal = legalMoves.some(m => m.to === sqIdx);
         if (isLegal) {
-          ctx.fillStyle = game.board[sqIdx] ? 'rgba(255, 40, 40, 0.6)' : 'rgba(0, 240, 255, 0.6)';
-          ctx.beginPath();
-          ctx.arc(sqX + sqSize / 2, sqY + sqSize / 2, sqSize * (game.board[sqIdx] ? 0.38 : 0.18), 0, Math.PI * 2);
-          ctx.fill();
+          ctx.save();
+          if (game.board[sqIdx]) {
+            ctx.strokeStyle = '#ff3333';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(sqX + 3, sqY + 3, sqSize - 6, sqSize - 6);
+          } else {
+            ctx.fillStyle = 'rgba(212, 175, 55, 0.75)';
+            ctx.beginPath();
+            ctx.arc(sqX + sqSize / 2, sqY + sqSize / 2, sqSize * 0.18, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
         }
 
-        // Piece Drawing (Unicode / Stylized)
+        // Draw Piece
         const piece = game.board[sqIdx];
         if (piece) {
           const char = UNICODE_PIECES[piece] || '';
           const isWhite = (piece & PIECES.WHITE) !== 0;
 
           ctx.save();
-          ctx.font = `${Math.floor(sqSize * 0.72)}px system-ui, sans-serif`;
+          ctx.font = `${Math.floor(sqSize * 0.78)}px 'Segoe UI Symbol', system-ui, sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
 
-          // Glow / Shadow for piece clarity
-          ctx.fillStyle = isWhite ? '#ffffff' : '#11131a';
-          ctx.shadowColor = isWhite ? '#00f0ff' : '#000000';
-          ctx.shadowBlur = 6;
+          // Shadows & 3D Piece depth
+          ctx.fillStyle = isWhite ? '#ffffff' : '#18141a';
+          ctx.shadowColor = isWhite ? 'rgba(255, 215, 0, 0.6)' : 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 8;
           ctx.fillText(char, sqX + sqSize / 2, sqY + sqSize / 2 + 2);
 
-          // Stroke for dark pieces on dark background
           if (!isWhite) {
-            ctx.strokeStyle = '#ffd700';
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#d4af37';
+            ctx.lineWidth = 1.2;
             ctx.strokeText(char, sqX + sqSize / 2, sqY + sqSize / 2 + 2);
           }
           ctx.restore();
@@ -245,24 +281,26 @@ export function start(canvas) {
 
     // Top HUD
     ctx.save();
-    ctx.font = '900 20px system-ui, sans-serif';
-    ctx.fillStyle = '#fff';
+    ctx.font = '900 22px Cinzel, serif';
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#d4af37';
+    ctx.shadowBlur = 10;
     ctx.textAlign = 'center';
     
-    const turnText = game.turn === PIECES.WHITE ? "⚪ White's Move" : "⚫ Black's Move";
-    ctx.fillText(`${turnText} ${isThinking ? '(Thinking...)' : ''}`, width / 2, y - 24);
+    const turnText = game.turn === PIECES.WHITE ? "⚪ White's Turn" : "⚫ Black's Turn";
+    ctx.fillText(`${turnText} ${isThinking ? '(Contemplating...)' : ''}`, width / 2, y - 28);
 
     // Mode Toggle Button Badge
-    ctx.fillStyle = '#222b3d';
-    ctx.roundRect(width / 2 - 90, 16, 180, 28, 6);
+    ctx.fillStyle = 'rgba(34, 22, 17, 0.9)';
+    ctx.roundRect(width / 2 - 110, 14, 220, 32, 8);
     ctx.fill();
-    ctx.strokeStyle = '#00f0ff';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    ctx.font = '700 12px system-ui, sans-serif';
-    ctx.fillStyle = '#00f0ff';
-    ctx.fillText(`MODE: ${gameMode.toUpperCase()} (Click to toggle)`, width / 2, 34);
+    ctx.font = '900 13px Cinzel, serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`MODE: ${gameMode.toUpperCase()} (Click to change)`, width / 2, 34);
     ctx.restore();
 
     rafId = requestAnimationFrame(render);
