@@ -1,20 +1,40 @@
-/* Tokens & Design System */
+/* Pirates of the Caribbean & Mystic Sea Theme Tokens */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Pirata+One&family=MedievalSharp&family=Inter:wght@400;600;700&display=swap');
+
 :root {
-  --bg: #090c10;
-  --bg-alt: #131822;
-  --bg-card: rgba(22, 28, 40, 0.85);
-  --fg: #f0f3f8;
-  --muted: #8c9ba5;
-  --accent: #ff5a1f;
-  --accent-2: #00f0ff;
+  --bg: #090a0d;
+  --bg-alt: #131118;
+  --bg-card: rgba(22, 17, 24, 0.88);
+  --fg: #e8dcc4;
+  --muted: #a39580;
+  
+  /* Pirate Treasures & Mystic Galleon Colors */
+  --gold-primary: #d4af37;
+  --gold-glow: #f3cf58;
+  --gold-dark: #8c6d1f;
+  --crimson: #8b0000;
+  --crimson-light: #c0392b;
+  --wood-dark: #1e130c;
+  --wood-border: #4a3319;
+  --bronze: #cd7f32;
+  --sea-cursed: #1abc9c;
+  
+  --accent: #d4af37;
+  --accent-2: #e67e22;
   --accent-gold: #ffd700;
-  --radius-sm: 8px;
-  --radius: 14px;
-  --radius-lg: 20px;
+  
+  --radius-sm: 6px;
+  --radius: 12px;
+  --radius-lg: 18px;
   --space-1: 8px;
   --space-2: 16px;
   --space-3: 28px;
-  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-bg: rgba(16, 22, 34, 0.75);
+  
+  --font-title: 'Cinzel', 'Pirata One', 'MedievalSharp', serif;
+  --font: 'Cinzel', 'MedievalSharp', serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  
+  --glass-border: rgba(212, 175, 55, 0.35);
+  --glass-bg: rgba(14, 11, 16, 0.82);
+  --parchment: #221a14;
 }

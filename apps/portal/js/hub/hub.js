@@ -4,6 +4,7 @@ import { bus } from '../core/event-bus.js';
 import { initModals } from '../ui/modals.js';
 import { showScoreCard, initScoreCardUI } from '../ui/scorecard.js';
 import { sound } from '../shared/audio.js';
+import { init3DIntro } from '../intro/intro-3d.js';
 
 const hubEl = document.getElementById('hub');
 const gameView = document.getElementById('game-view');
@@ -13,13 +14,26 @@ const overlay = document.getElementById('game-overlay');
 
 let activeGame = null;     // holds {stop()} returned by game module
 let activeManifest = null;
+let pendingGameId = null;
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/workers/service-worker.js').catch(console.error);
 }
 
-// Initialize Modals & UI
-initModals();
+// Initialize 3D Intro & Modals
+init3DIntro();
+
+initModals(() => {
+  // Callback upon login/registration: direct user immediately to their pending game or first featured game
+  if (pendingGameId) {
+    goTo(pendingGameId);
+    pendingGameId = null;
+  } else {
+    // Redirect user to Fruit Blade or current selected game
+    goTo('fruit-blade');
+  }
+});
+
 initScoreCardUI(() => goTo(null));
 
 const manifests = await loadRegistry();
@@ -35,7 +49,7 @@ bus.on('route:change', async (id) => {
 
 function renderCards(list) {
   if (!list.length) {
-    hubEl.innerHTML = `<p class="empty-state">No games available right now. Check back later.</p>`;
+    hubEl.innerHTML = `<p class="empty-state">No voyages available right now. Check back later.</p>`;
     return;
   }
   hubEl.innerHTML = '';
@@ -50,10 +64,11 @@ function renderCards(list) {
           <h3>${m.title}</h3>
           <p>${m.description}</p>
         </div>
-        <div class="play-tag">Play Now &rarr;</div>
+        <div class="play-tag">Set Sail &rarr;</div>
       </div>`;
     card.addEventListener('click', () => {
       sound.init();
+      pendingGameId = m.id;
       goTo(m.id);
     });
     hubEl.appendChild(card);
@@ -73,7 +88,7 @@ async function openGame(manifest) {
     canvas.addEventListener('gameover', onGameOver, { once: true });
   } catch (err) {
     console.error(err);
-    overlay.innerHTML = `<p>Couldn't load this game.</p><button id="ov-back">Back to hub</button>`;
+    overlay.innerHTML = `<p>Couldn't load this voyage.</p><button id="ov-back">Back to Harbor</button>`;
     overlay.classList.remove('hidden');
     document.getElementById('ov-back').addEventListener('click', () => goTo(null));
   }

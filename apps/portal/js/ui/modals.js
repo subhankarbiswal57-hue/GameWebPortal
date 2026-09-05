@@ -1,7 +1,27 @@
 import { auth, AVAILABLE_AVATARS } from '../auth/auth.js';
 import { leaderboard } from '../leaderboard/leaderboard.js';
+import { sound } from '../shared/audio.js';
 
-export function initModals() {
+export function initModals(onAuthSuccess) {
+  // --- PASSWORD EYE TOGGLES ---
+  document.querySelectorAll('.eye-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = btn.dataset.target;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+        btn.title = 'Hide password';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+        btn.title = 'Show password';
+      }
+    });
+  });
+
   // --- AUTH MODAL ---
   const authModal = document.getElementById('auth-modal');
   const userProfileBtn = document.getElementById('user-profile-btn');
@@ -13,11 +33,13 @@ export function initModals() {
   const authError = document.getElementById('auth-error');
   const avatarPicker = document.getElementById('avatar-picker');
 
-  let selectedAvatar = AVAILABLE_AVATARS[0];
+  // Pirates themed avatar set
+  const PIRATE_AVATARS = ['🏴‍☠️', '☠️', '⚓', '🦜', '🗡️', '👑', '🪙', '🐙', '📜', '🧭'];
+  let selectedAvatar = PIRATE_AVATARS[0];
 
-  // Render Avatars in registration
+  // Render Pirate Avatars in registration
   avatarPicker.innerHTML = '';
-  AVAILABLE_AVATARS.forEach(av => {
+  PIRATE_AVATARS.forEach(av => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `avatar-opt ${av === selectedAvatar ? 'active' : ''}`;
@@ -57,27 +79,35 @@ export function initModals() {
 
   loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
+    sound.init();
     const uname = document.getElementById('login-username').value;
     const pass = document.getElementById('login-password').value;
     try {
       auth.login(uname, pass);
+      sound.playVictory();
       authModal.classList.add('hidden');
       loginForm.reset();
+      if (onAuthSuccess) onAuthSuccess();
     } catch (err) {
       authError.textContent = err.message;
+      sound.playCrash();
     }
   });
 
   registerForm.addEventListener('submit', (e) => {
     e.preventDefault();
+    sound.init();
     const uname = document.getElementById('reg-username').value;
     const pass = document.getElementById('reg-password').value;
     try {
       auth.register(uname, pass, selectedAvatar);
+      sound.playVictory();
       authModal.classList.add('hidden');
       registerForm.reset();
+      if (onAuthSuccess) onAuthSuccess();
     } catch (err) {
       authError.textContent = err.message;
+      sound.playCrash();
     }
   });
 
@@ -87,7 +117,7 @@ export function initModals() {
     const avEl = document.getElementById('nav-user-avatar');
     if (user) {
       nameEl.textContent = user.username;
-      avEl.textContent = user.avatar;
+      avEl.textContent = user.avatar || '🏴‍☠️';
     }
   });
 
@@ -101,12 +131,12 @@ export function initModals() {
   let activeGameId = 'fruit-blade';
 
   async function renderLeaderboard() {
-    lbList.innerHTML = '<p class="lb-loading">Fetching online rankings...</p>';
+    lbList.innerHTML = '<p class="lb-loading">Reading the Captains Log...</p>';
     const scores = await leaderboard.getScores(activeGameId);
     lbList.innerHTML = '';
 
     if (!scores.length) {
-      lbList.innerHTML = '<p class="empty-state">No scores yet. Be the first to rank!</p>';
+      lbList.innerHTML = '<p class="empty-state">No plunder recorded yet, matey!</p>';
       return;
     }
 
@@ -115,15 +145,15 @@ export function initModals() {
       row.className = `lb-row ${index === 0 ? 'top-1' : index === 1 ? 'top-2' : index === 2 ? 'top-3' : ''}`;
       
       let medal = `#${index + 1}`;
-      if (index === 0) medal = '🥇 1st';
-      else if (index === 1) medal = '🥈 2nd';
-      else if (index === 2) medal = '🥉 3rd';
+      if (index === 0) medal = '👑 Captain';
+      else if (index === 1) medal = '🥈 1st Mate';
+      else if (index === 2) medal = '🥉 Quartermaster';
 
       row.innerHTML = `
         <span class="lb-rank">${medal}</span>
-        <span class="lb-avatar">${item.avatar || '🦊'}</span>
+        <span class="lb-avatar">${item.avatar || '🏴‍☠️'}</span>
         <span class="lb-name">${item.name}</span>
-        <span class="lb-score">${item.score.toLocaleString()}</span>
+        <span class="lb-score">🪙 ${item.score.toLocaleString()}</span>
       `;
       lbList.appendChild(row);
     });
