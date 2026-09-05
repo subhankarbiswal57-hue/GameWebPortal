@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AstrasGaming - Pirates of the Caribbean Realm</title>
+<title>AstrasGaming - Legendary Game Portal</title>
 <link rel="stylesheet" href="/apps/portal/css/tokens.css">
 <link rel="stylesheet" href="/apps/portal/css/layout.css">
 <link rel="stylesheet" href="/apps/portal/css/components/nav.css">
@@ -15,10 +15,10 @@
 <div id="intro-screen" class="intro-screen">
   <canvas id="intro-canvas"></canvas>
   <div class="intro-overlay-content">
-    <div class="intro-tagline">⚔️ PIRATES OF THE CARIBBEAN REALM ⚔️</div>
+    <div class="intro-tagline">⚔️ THE MYSTIC REALM OF GAMING ⚔️</div>
     <h1 class="intro-title">AstrasGaming</h1>
-    <p class="intro-subtitle">Venture through cursed oceans, duel grandmasters, slice royal bounties, and carve your legend into the Captain's Ledger.</p>
-    <button id="enter-portal-btn" class="intro-enter-btn">
+    <p class="intro-subtitle">Venture through mystical arenas, duel grandmasters, slice royal fruits, and carve your legend into the Global Hall of Fame.</p>
+    <button id="enter-portal-btn" class="intro-enter-btn" type="button">
       <span>☠️</span> ENTER THE PORTAL <span>⚔️</span>
     </button>
   </div>
@@ -31,11 +31,11 @@
   </div>
   <div class="nav-actions">
     <button id="leaderboard-btn" class="nav-btn">
-      <span>📜</span> Captain's Log
+      <span>📜</span> Hall of Fame
     </button>
     <div id="user-profile-btn" class="nav-user-badge">
       <span id="nav-user-avatar" class="nav-avatar">🏴‍☠️</span>
-      <span id="nav-user-name" class="nav-username">Captain Guest</span>
+      <span id="nav-user-name" class="nav-username">Guest Warrior</span>
     </div>
   </div>
 </header>
@@ -54,19 +54,19 @@
     <div class="sc-header">
       <div class="sc-player-info">
         <span id="sc-avatar" class="sc-avatar">🏴‍☠️</span>
-        <span id="sc-username" class="sc-username">Captain</span>
+        <span id="sc-username" class="sc-username">Champion</span>
       </div>
       <div id="sc-best-badge" class="sc-best-badge hidden">⭐ LEGENDARY HIGH SCORE! ⭐</div>
     </div>
     <div class="sc-score-box">
       <div class="sc-score-label">Plunder & Score</div>
       <div id="sc-score" class="sc-score-val">0</div>
-      <div id="sc-rank" class="sc-rank-badge">Computing rank in the fleet...</div>
+      <div id="sc-rank" class="sc-rank-badge">Computing rank in the realm...</div>
     </div>
     <div id="sc-stats-grid" class="sc-stats-grid"></div>
     <div class="sc-actions">
-      <button id="sc-retry-btn" class="btn-primary">🔄 Sail Again</button>
-      <button id="sc-view-lb-btn" class="btn-secondary">📜 View Captain's Log</button>
+      <button id="sc-retry-btn" class="btn-primary">🔄 Play Again</button>
+      <button id="sc-view-lb-btn" class="btn-secondary">📜 View Hall of Fame</button>
       <button id="sc-hub-btn" class="btn-secondary">🏠 Return to Harbor</button>
     </div>
   </div>
@@ -76,7 +76,7 @@
 <div id="auth-modal" class="modal hidden">
   <div class="modal-content">
     <button id="auth-close-btn" class="modal-close-btn">&times;</button>
-    <div class="modal-title">⚔️ Captain's Quarters ⚔️</div>
+    <div class="modal-title">⚔️ Player Quarters ⚔️</div>
     <div class="auth-tabs">
       <button id="tab-login" class="auth-tab active">Login</button>
       <button id="tab-register" class="auth-tab">Sign Articles</button>
@@ -85,8 +85,8 @@
     <!-- Login Form -->
     <form id="form-login" class="auth-form">
       <div class="form-group">
-        <label>Pirate Name</label>
-        <input type="text" id="login-username" required autocomplete="username" placeholder="e.g. JackSparrow">
+        <label>Player Name</label>
+        <input type="text" id="login-username" required autocomplete="username" placeholder="e.g. CaptainJack">
       </div>
       <div class="form-group">
         <label>Secret Passcode</label>
@@ -95,18 +95,18 @@
           <button type="button" class="eye-toggle" data-target="login-password" title="Show/Hide password">👁️</button>
         </div>
       </div>
-      <button type="submit" class="auth-submit-btn">Enter Fleet & Play</button>
+      <button type="submit" class="auth-submit-btn">Enter & Play</button>
     </form>
 
     <!-- Register Form -->
     <form id="form-register" class="auth-form hidden">
       <div class="form-group">
-        <label>Choose Your Pirate Crest</label>
+        <label>Choose Your Crest</label>
         <div id="avatar-picker" class="avatar-grid"></div>
       </div>
       <div class="form-group">
-        <label>Pirate Handle</label>
-        <input type="text" id="reg-username" required autocomplete="username" placeholder="Choose a fierce name">
+        <label>Player Handle</label>
+        <input type="text" id="reg-username" required autocomplete="username" placeholder="Choose a fierce handle">
       </div>
       <div class="form-group">
         <label>Secret Passcode</label>
@@ -115,7 +115,7 @@
           <button type="button" class="eye-toggle" data-target="reg-password" title="Show/Hide password">👁️</button>
         </div>
       </div>
-      <button type="submit" class="auth-submit-btn">Sign Articles & Sail</button>
+      <button type="submit" class="auth-submit-btn">Sign Articles & Play</button>
     </form>
     <div id="auth-error" class="auth-error-msg"></div>
   </div>
@@ -125,7 +125,7 @@
 <div id="leaderboard-modal" class="modal hidden">
   <div class="modal-content leaderboard-modal-content">
     <button id="lb-close-btn" class="modal-close-btn">&times;</button>
-    <div class="modal-title">📜 The Seven Seas Leaderboard</div>
+    <div class="modal-title">📜 Global Hall of Fame</div>
     <div class="lb-tabs">
       <button class="lb-tab active" data-game="fruit-blade">🍉 Fruit Blade</button>
       <button class="lb-tab" data-game="car-racer">🏎️ Turbo Racer</button>
@@ -133,7 +133,7 @@
       <button class="lb-tab" data-game="game-one">🚀 Orbit Dodge</button>
     </div>
     <div id="lb-list" class="lb-list">
-      <p class="lb-loading">Reading the Captain's Log...</p>
+      <p class="lb-loading">Reading Hall of Fame records...</p>
     </div>
   </div>
 </div>
