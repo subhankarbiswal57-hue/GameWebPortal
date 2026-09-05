@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/apps/portal/index.html" },
+    { "source": "/api/score-submit", "destination": "/backend/functions/score-submit.js" },
+    { "source": "/api/leaderboard", "destination": "/backend/functions/leaderboard-get.js" }
+  ]
+}

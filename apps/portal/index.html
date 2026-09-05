@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web Game Portal</title>
+<link rel="stylesheet" href="/apps/portal/css/tokens.css">
+<link rel="stylesheet" href="/apps/portal/css/layout.css">
+<link rel="stylesheet" href="/apps/portal/css/components/nav.css">
+<link rel="stylesheet" href="/apps/portal/css/components/card.css">
+</head>
+<body>
+<header class="nav"><h1>Game Hub</h1></header>
+<main id="hub" class="hub-grid"></main>
+<section id="game-view" class="game-view hidden">
+  <button id="back-btn" class="back-btn">&larr; Back</button>
+  <canvas id="game-canvas"></canvas>
+  <div id="game-overlay" class="overlay hidden"></div>
+</section>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module" src="/apps/portal/js/hub/hub.js"></script>
+</body>
+</html>

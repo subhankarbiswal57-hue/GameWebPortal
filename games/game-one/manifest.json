@@ -1,0 +1,7 @@
+{
+  "id": "game-one",
+  "title": "Orbit Dodge",
+  "description": "Dodge incoming obstacles in 3D space. Arrow keys / swipe to move.",
+  "thumbnail": "/games/game-one/thumb.svg",
+  "entry": "main.js"
+}

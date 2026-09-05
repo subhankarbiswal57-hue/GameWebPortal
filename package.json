@@ -1,0 +1,16 @@
+{
+  "name": "web-game-portal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  },
+  "scripts": {
+    "dev": "serve ."
+  }
+}

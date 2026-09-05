@@ -1,0 +1,9 @@
+.card{
+  background:var(--bg-alt);border-radius:var(--radius);overflow:hidden;
+  border:1px solid #232833;cursor:pointer;transition:transform .15s,border-color .15s;
+}
+.card:hover{transform:translateY(-4px);border-color:var(--accent)}
+.card img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#000}
+.card .body{padding:var(--space-2)}
+.card h3{font-size:1.05rem;margin-bottom:4px}
+.card p{font-size:.85rem;color:var(--muted)}
